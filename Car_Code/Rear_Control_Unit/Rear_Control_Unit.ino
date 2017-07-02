@@ -7,6 +7,7 @@
 #include <FlexCAN.h>
 #include <HyTech17.h>
 #include <Metro.h>
+#include <XBee.h>
 
 /*
  * Pin definitions
@@ -67,6 +68,8 @@ void setup() {
   delay(100);
   Serial.println("CAN transceiver initialized");
   digitalWrite(SSR_INVERTER, HIGH);
+  
+  // Xbee setup
 }
 
 void loop() {
