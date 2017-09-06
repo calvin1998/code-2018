@@ -34,6 +34,7 @@
 #define MAX_VAL_CURRENT_SENSE 300
 #define CHARGE_TEMP_CRITICAL_HIGH 4400 // 44.00
 #define DISCHARGE_TEMP_CRITICAL_HIGH 6000 // 60.00
+#define VOLTAGE_DIFFERENCE_THRESHOLD 100 //100 mV
 
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 4
@@ -117,9 +118,9 @@ void setup() {
 
 void loop() {
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
-
+    balance_cells ();
     process_temps(); // sto datap in bmsTempMessage object.
-    process_current(); // sto data in bmsCurrentMessage object.
+    /*process_current(); // sto data in bmsCurrentMessage object.
 
     // write to CAN!
     writeToCAN();
@@ -131,7 +132,9 @@ void loop() {
     }
     watchDogFlag = !watchDogFlag; // inverting watchDogFlag
     // Prevents WATCH_DOG_TIMER timeout
-    digitalWrite(WATCH_DOG_TIMER, watchDogFlag);
+    digitalWrite(WATCH_DOG_TIMER, watchDogFlag);*/
+
+    
 }
 
 /*!***********************************
@@ -161,6 +164,28 @@ void dischargeAll() {
     wakeFromSleepAllChips();
 }
 
+void balance_cells () {
+  int voltage_diff = bmsVoltageMessage.getHigh() - bmsVoltageMessage.getLow();//diff between highest and lowest cell
+  Serial.println("Voltage Difference: ");
+  Serial.println("");
+  if(voltage_diff>VOLTAGE_DIFFERENCE_THRESHOLD && bmsVoltageMessage.getLow() > VOLTAGE_LOW_CUTOFF) {// if highest cell surppasses balancing threshold 
+    for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
+        for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
+            if ((ic != 0 || cell != 4) && (ic != 1 || cell != 7)) {
+                uint16_t currentCell = cell_voltages[ic][cell];// current cell voltage in mV
+                if (currentCell > bmsVoltageMessage.getLow()+balancing_threshold){//cell over bmsVoltage + threshold to which we balance
+                    //activate discharge resistor across that cell
+                    //set cell to discharging
+                }else{
+                    //stop discharging cells if any 
+                }
+            }
+        }
+    }else{
+        //make sure all cells not discharging
+    }
+  }
+}
 void poll_cell_voltage() {
     Serial.println("Polling Voltages...");
     /*
@@ -178,7 +203,7 @@ void poll_cell_voltage() {
     if (error == -1) {
         Serial.println("A PEC error was detected in cell voltage data");
     }
-    printCells(); // prints the cell voltages to Serial.
+    //printCells(); // prints the cell voltages to Serial.
     delay(200); // TODO: Why 200 milliseconds?
 }
 
