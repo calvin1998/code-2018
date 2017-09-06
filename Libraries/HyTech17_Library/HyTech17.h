@@ -240,6 +240,21 @@ class BMS_voltages {
     CAN_message_bms_voltage_t bmsVoltageMessage;
 };
 
+class BMS_balancing {
+  public:
+    BMS_balancing();
+    BMS_balancing(uint8_t buf[]);
+    BMS_balancing(uint16_t status, uint16_t voltage_difference);
+    void load(uint8_t buf[]);
+    void write(uint8_t buf[]);
+    uint16_t status();
+    uint16_t voltage_difference();
+    void status(uint16_t status);
+    void setVoltage_difference(uint16_t voltage_difference);
+  private:
+    CAN_message_bms_voltage_t bmsBalancingMessage;
+};
+
 enum CHARGING_STATE {
     DISCHARGING = 0,
     CHARGING = 1,

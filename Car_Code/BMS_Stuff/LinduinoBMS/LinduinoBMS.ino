@@ -168,7 +168,7 @@ void dischargeAll() {
 void balance_cells () {
   bmsBalanceMessage.setVoltage_difference(bmsVoltageMessage.getHigh() - bmsVoltageMessage.getLow());//diff between highest and lowest cell
   Serial.println("Voltage Difference: ");
-  Serial.println(bmsBalanceMessage.voltage_difference);
+  Serial.println(bmsBalanceMessage.voltage_difference());
   /*
   if(bmsBalanceMessage.voltage_difference>VOLTAGE_DIFFERENCE_THRESHOLD && bmsVoltageMessage.getLow() > VOLTAGE_LOW_CUTOFF) {// if highest cell surppasses balancing threshold 
     for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
