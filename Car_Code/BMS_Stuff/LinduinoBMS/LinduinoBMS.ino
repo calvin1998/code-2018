@@ -1,4 +1,4 @@
-/**
+  /**
  * LinduinoBMS.ino - Code that runs on the BMS Linduino. This system only has one Linduino, which interfaces directly with the Car's CAN Bus
  * Created by Shrivathsav Seshan & Charith "Karvin" Dassanayake, April 11, 2017
  */
@@ -128,7 +128,7 @@ void setup() {
 
 void loop() {
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
-    bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
+    //bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
     balance_cells();
     process_temps(); // sto datap in bmsTempMessage object.
     /*process_current(); // sto data in bmsCurrentMessage object.
