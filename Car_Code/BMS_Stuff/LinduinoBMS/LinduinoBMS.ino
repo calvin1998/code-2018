@@ -128,7 +128,7 @@ void setup() {
 
 void loop() {
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
-    //bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
+    bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
     balance_cells();
     process_temps(); // sto datap in bmsTempMessage object.
     /*process_current(); // sto data in bmsCurrentMessage object.
@@ -207,31 +207,33 @@ void balance_cells () {
                     //activate discharge resistor across that cell
                     //set cell to discharging
                     discharge_cell(ic,cell);
-                    Serial.print("Discharging \t Cell: cellPack");
+                    Serial.print("Discharging \t Cell: Pack: ");
                     Serial.print(ic);
-                    Serial.print(" cell");
+                    Serial.print(" cell: ");
                     Serial.print(cell);
                     Serial.print(" voltage (V) ");
                     Serial.println(cell_voltage);
                 } else {
                     cell_discharging[ic][cell] = false;
-                    Serial.print("Not Discharging \t  Cell: cellPack");
+                    Serial.print("Not Discharging \t  Cell: Pack: ");
                     Serial.print(ic);
-                    Serial.print(" cell");
+                    Serial.print(" cell: ");
                     Serial.println(cell);
+                    Serial.print(" voltage (V) ");
+                    Serial.println(cell_voltage);
                     //disable discharging
                 }
             }
         }
     }
   }else{
-      Serial.println("Stopping Balancing!");
+      Serial.println("Not Balancing!");
        for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
             if(!ignore_cell[ic][cell]){
                 if (cell_discharging[ic][cell]){
                     cell_discharging[ic][cell] = false;
-                    Serial.print("Stopping Discharging Cell:");
+                    Serial.print("Stopping Discharging of Cell:");
                     Serial.print(ic);
                     Serial.print(" ");
                     Serial.println(cell);
