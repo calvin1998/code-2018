@@ -48,7 +48,7 @@ uint16_t aux_voltages[TOTAL_IC][6]; // contains auxiliary pin voltages.
       * Thermistor 2
       * Thermistor 3
       */
-int16_t cell_delta_voltage[TOTAL_IC][12]; // contains 12 signed dV values in 0.1 mV units
+int16_t cell_delta_voltage[TOTAL_IC][9]; // keep track of which cells are being discharged
 
 /*!<
   The tx_cfg[][6] sto the LTC6804 configuration data that is going to be written
@@ -80,10 +80,12 @@ BMS_voltages bmsVoltageMessage;
 BMS_currents bmsCurrentMessage;
 BMS_temperatures bmsTempMessage;
 BMS_status bmsStatusMessage;
-BMS_balancing bmsBalanceMessage;
 
 int minVoltageICIndex;
 int minVoltageCellIndex;
+int voltage_difference;
+
+bool cell_discharging[TOTAL_IC][12];
 
 void setup() {
     // put your setup code here, to run once:
@@ -166,28 +168,45 @@ void dischargeAll() {
 }
 
 void balance_cells () {
-  bmsBalanceMessage.setVoltage_difference(bmsVoltageMessage.getHigh() - bmsVoltageMessage.getLow());//diff between highest and lowest cell
+  voltage_difference = bmsVoltageMessage.getHigh() - bmsVoltageMessage.getLow();//diff between highest and lowest cell
   Serial.println("Voltage Difference: ");
-  Serial.println(bmsBalanceMessage.voltage_difference());
-  /*
-  if(bmsBalanceMessage.voltage_difference>VOLTAGE_DIFFERENCE_THRESHOLD && bmsVoltageMessage.getLow() > VOLTAGE_LOW_CUTOFF) {// if highest cell surppasses balancing threshold 
+  Serial.println(voltage_difference);
+  
+  if(voltage_difference>VOLTAGE_DIFFERENCE_THRESHOLD && bmsVoltageMessage.getLow() > VOLTAGE_LOW_CUTOFF) {// if highest cell surppasses balancing threshold 
     for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
-            if ((ic != 0 || cell != 4) && (ic != 1 || cell != 7)) {
                 uint16_t currentCell = cell_voltages[ic][cell];// current cell voltage in mV
-                if (currentCell > bmsVoltageMessage.getLow()+balancing_threshold){//cell over bmsVoltage + threshold to which we balance
+                if (currentCell > bmsVoltageMessage.getLow()+VOLTAGE_DIFFERENCE_THRESHOLD){//cell over bmsVoltage + threshold to which we balance
+                    cell_discharging[ic][cell] = true;
                     //activate discharge resistor across that cell
                     //set cell to discharging
-                }else{
-                    //stop discharging cells if any 
+                    Serial.print("Discharging Cell:");
+                    Serial.print(ic);
+                    Serial.print(" ");
+                    Serial.println(cell);
+                }else {
+                    cell_discharging[ic][cell] = false;
+                    Serial.print("Stopping Discharging Cell:");
+                    Serial.print(ic);
+                    Serial.print(" ");
+                    Serial.println(cell);
+                    //disable discharging
                 }
-            }
         }
-    }else{
-        //make sure all cells not discharging
     }
+  }else{
+       for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
+        for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
+                if (cell_discharging[ic][cell]){
+                    cell_discharging[ic][cell] = false;
+                    Serial.print("Discharging Cell:");
+                    Serial.print(ic);
+                    Serial.print(" ");
+                    Serial.println(cell);
+                }
+        }
+    }   //make sure all cells not discharging
   }
-  */
 }
 void poll_cell_voltage() {
     Serial.println("Polling Voltages...");
