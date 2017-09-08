@@ -34,7 +34,7 @@
 #define MAX_VAL_CURRENT_SENSE 300
 #define CHARGE_TEMP_CRITICAL_HIGH 4400 // 44.00
 #define DISCHARGE_TEMP_CRITICAL_HIGH 6000 // 60.00
-#define VOLTAGE_DIFFERENCE_THRESHOLD 100 //100 mV
+#define VOLTAGE_DIFFERENCE_THRESHOLD 1000 //100 mV, 0.1V
 
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 4
@@ -178,8 +178,8 @@ void balance_cells () {
     for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
             if(!ignore_cell[ic][cell]){
-                uint16_t currentCell = cell_voltages[ic][cell];// current cell voltage in mV
-                if (currentCell > bmsVoltageMessage.getLow()+VOLTAGE_DIFFERENCE_THRESHOLD){//cell over bmsVoltage + threshold to which we balance
+                uint16_t cell_voltage = cell_voltages[ic][cell];// current cell voltage in mV
+                if (cell_voltage > bmsVoltageMessage.getLow()+VOLTAGE_DIFFERENCE_THRESHOLD){//cell over bmsVoltage + threshold to which we balance
                     cell_discharging[ic][cell] = true;
                     //activate discharge resistor across that cell
                     //set cell to discharging
@@ -199,13 +199,13 @@ void balance_cells () {
         }
     }
   }else{
-      Serial.println("Stopped Balancing!");
+      Serial.println("Stopping Balancing!");
        for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
             if(!ignore_cell[ic][cell]){
                 if (cell_discharging[ic][cell]){
                     cell_discharging[ic][cell] = false;
-                    Serial.print("Discharging Cell:");
+                    Serial.print("Stopping Discharging Cell:");
                     Serial.print(ic);
                     Serial.print(" ");
                     Serial.println(cell);
@@ -248,7 +248,7 @@ void process_voltages() {
     int minCell = 0;
     for (int ic = 0; ic < TOTAL_IC; ic++) {
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {
-            if ((ic != 0 || cell != 4) && (ic != 1 || cell != 7)) {
+            if ((ic != 0 || cell != 4) && (ic != 1 || cell != 7)&&!ignore_cell[ic][cell]) {
                 uint16_t currentCell = cell_voltages[ic][cell];
                 cell_delta_voltage[ic][cell] = currentCell - cell_delta_voltage[ic][cell];
                 if (currentCell > maxVolt) {
