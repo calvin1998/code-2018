@@ -37,7 +37,7 @@
 #define VOLTAGE_DIFFERENCE_THRESHOLD 1000 //100 mV, 0.1V
 
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
-#define TOTAL_IC 4
+#define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
 #define TOTAL_CELLS 9
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
 #define THERMISTOR_ISTOR_VALUE 6700 // TODO: Double check what istor is used on the istor divider.
@@ -113,6 +113,12 @@ void setup() {
     memcpy(cell_delta_voltage, cell_voltages, 2 * TOTAL_IC * TOTAL_CELLS);
     bmsCurrentMessage.setChargingState(CHARGING);
     Serial.println("Setup Complete!");
+    
+    // DEBUG Code for testing cell packs
+    ignore_cell[0][3] = true;
+    ignore_cell[0][4] = true;
+    ignore_cell[0][5] = true;
+    ignore_cell[0][6] = true;
 }
 
 // NOTE: Implement Coulomb counting to track state of charge of battery.
@@ -122,7 +128,8 @@ void setup() {
 
 void loop() {
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
-    balance_cells ();
+    bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
+    balance_cells();
     process_temps(); // sto datap in bmsTempMessage object.
     /*process_current(); // sto data in bmsCurrentMessage object.
 
@@ -157,7 +164,23 @@ void init_cfg()
     }
     wakeFromSleepAllChips();
     LTC6804_wrcfg(TOTAL_IC, tx_cfg);
-//    dischargeAll();
+    // dischargeAll();
+}
+
+void discharge_cell(int ic, int cell) {
+    discharge_cell(ic, cell, true);
+}
+
+void discharge_cell(int ic, int cell, bool setDischarge) {
+    if (ic < TOTAL_IC && cell < TOTAL_CELLS) {
+        if (cell < 8) {
+            tx_cfg[ic][4] = tx_cfg[ic][4] | (0b1 << cell); 
+        } else {
+            tx_cfg[ic][5] = tx_cfg[ic][5] | (0b1 << (cell - 8)); 
+        }
+        // TODO: Handle logic for unsetting discharge
+    }
+    wakeFromSleepAllChips();
 }
 
 void dischargeAll() {
@@ -183,15 +206,18 @@ void balance_cells () {
                     cell_discharging[ic][cell] = true;
                     //activate discharge resistor across that cell
                     //set cell to discharging
-                    Serial.print("Discharging Cell:");
+                    discharge_cell(ic,cell);
+                    Serial.print("Discharging \t Cell: cellPack");
                     Serial.print(ic);
-                    Serial.print(" ");
-                    Serial.println(cell);
-                }else {
+                    Serial.print(" cell");
+                    Serial.print(cell);
+                    Serial.print(" voltage (V) ");
+                    Serial.println(cell_voltage);
+                } else {
                     cell_discharging[ic][cell] = false;
-                    Serial.print("Stopping Discharging Cell:");
+                    Serial.print("Not Discharging \t  Cell: cellPack");
                     Serial.print(ic);
-                    Serial.print(" ");
+                    Serial.print(" cell");
                     Serial.println(cell);
                     //disable discharging
                 }
@@ -232,7 +258,7 @@ void poll_cell_voltage() {
     if (error == -1) {
         Serial.println("A PEC error was detected in cell voltage data");
     }
-    //printCells(); // prints the cell voltages to Serial.
+    printCells(); // prints the cell voltages to Serial.
     delay(200); // TODO: Why 200 milliseconds?
 }
 
@@ -268,8 +294,8 @@ void process_voltages() {
     avgVolt = totalVolts / (TOTAL_IC * TOTAL_CELLS); // stored as double volts
     bmsVoltageMessage.setAverage(static_cast<uint16_t>(avgVolt * 1000 + 0.5)); // stored in millivolts
     bmsVoltageMessage.setTotal(static_cast<uint16_t>(totalVolts + 0.5)); // number is in units volts
-    minVolt = (minVolt + 5) / 10;
-    maxVolt = (maxVolt + 5) / 10;
+    minVolt = minVolt + 5;
+    maxVolt = maxVolt + 5;
     bmsVoltageMessage.setLow(minVolt);
     bmsVoltageMessage.setHigh(maxVolt);
 
@@ -496,7 +522,11 @@ void printCells() {
         Serial.print("IC: ");
         Serial.println(current_ic+1);
         for (int i = 0; i < TOTAL_CELLS; i++) {
-            Serial.print("C"); Serial.print(i+1); Serial.print(": ");
+            Serial.print("C"); Serial.print(i);
+            if (ignore_cell[current_ic][i]) {
+                Serial.print(" IGNORED CELL ");
+            }
+            Serial.print(": ");
             float voltage = cell_voltages[current_ic][i] * 0.0001;
             Serial.println(voltage, 4);
         }
