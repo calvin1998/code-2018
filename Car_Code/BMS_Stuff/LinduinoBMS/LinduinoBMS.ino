@@ -49,6 +49,7 @@ uint16_t aux_voltages[TOTAL_IC][6]; // contains auxiliary pin voltages.
       * Thermistor 3
       */
 int16_t cell_delta_voltage[TOTAL_IC][9]; // keep track of which cells are being discharged
+int16_t ignore_cell[TOTAL_IC][9]; //cells to be ignored for Balance testing
 
 /*!<
   The tx_cfg[][6] sto the LTC6804 configuration data that is going to be written
@@ -173,8 +174,10 @@ void balance_cells () {
   Serial.println(voltage_difference);
   
   if(voltage_difference>VOLTAGE_DIFFERENCE_THRESHOLD && bmsVoltageMessage.getLow() > VOLTAGE_LOW_CUTOFF) {// if highest cell surppasses balancing threshold 
+    Serial.println("Balancing!");
     for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
+            if(!ignore_cell[ic][cell]){
                 uint16_t currentCell = cell_voltages[ic][cell];// current cell voltage in mV
                 if (currentCell > bmsVoltageMessage.getLow()+VOLTAGE_DIFFERENCE_THRESHOLD){//cell over bmsVoltage + threshold to which we balance
                     cell_discharging[ic][cell] = true;
@@ -192,11 +195,14 @@ void balance_cells () {
                     Serial.println(cell);
                     //disable discharging
                 }
+            }
         }
     }
   }else{
+      Serial.println("Stopped Balancing!");
        for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
+            if(!ignore_cell[ic][cell]){
                 if (cell_discharging[ic][cell]){
                     cell_discharging[ic][cell] = false;
                     Serial.print("Discharging Cell:");
@@ -204,6 +210,7 @@ void balance_cells () {
                     Serial.print(" ");
                     Serial.println(cell);
                 }
+            }
         }
     }   //make sure all cells not discharging
   }
