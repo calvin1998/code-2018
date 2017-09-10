@@ -26,8 +26,6 @@
  */
 
 /************BATTERY CONSTRAINTS AND CONSTANTS**********************/
-#define VOLTAGE_LOW_CUTOFF 2980
-#define VOLTAGE_HIGH_CUTOFF 4210
 #define TOTAL_VOLTAGE_CUTOFF 150
 #define DISCHARGE_CURRENT_CONSTANT_HIGH 220
 #define CHARGE_CURRENT_CONSTANT_HIGH -400
@@ -35,6 +33,9 @@
 #define CHARGE_TEMP_CRITICAL_HIGH 4400 // 44.00
 #define DISCHARGE_TEMP_CRITICAL_HIGH 6000 // 60.00
 #define VOLTAGE_DIFFERENCE_THRESHOLD 1000 //100 mV, 0.1V
+
+short voltage_cutoff_low = 2980;
+short voltage_cutoff_high = 4210;
 
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
@@ -196,7 +197,7 @@ void balance_cells () {
   Serial.println("Voltage Difference: ");
   Serial.println(voltage_difference);
   
-  if(voltage_difference>VOLTAGE_DIFFERENCE_THRESHOLD && bmsVoltageMessage.getLow() > VOLTAGE_LOW_CUTOFF) {// if highest cell surppasses balancing threshold 
+  if(voltage_difference>VOLTAGE_DIFFERENCE_THRESHOLD && bmsVoltageMessage.getLow() > voltage_cutoff_low) {// if highest cell surppasses balancing threshold 
     Serial.println("Balancing!");
     for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
@@ -302,14 +303,14 @@ void process_voltages() {
     bmsVoltageMessage.setHigh(maxVolt);
 
     // TODO: Low and High voltage error checking.
-    if (bmsVoltageMessage.getHigh() > VOLTAGE_HIGH_CUTOFF) {
+    if (bmsVoltageMessage.getHigh() > voltage_cutoff_high) {
         bmsStatusMessage.setOvervoltage(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
         Serial.print("max IC: "); Serial.println(maxIC);
         Serial.print("max Cell: "); Serial.println(maxCell); Serial.println();
     }
 
-    if (bmsVoltageMessage.getLow() < VOLTAGE_LOW_CUTOFF) {
+    if (bmsVoltageMessage.getLow() < voltage_cutoff_low) {
         bmsStatusMessage.setUndervoltage(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
         Serial.print("min IC: "); Serial.println(minIC);
