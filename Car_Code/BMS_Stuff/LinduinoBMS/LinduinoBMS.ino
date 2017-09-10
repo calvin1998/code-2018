@@ -26,16 +26,15 @@
  */
 
 /************BATTERY CONSTRAINTS AND CONSTANTS**********************/
-#define TOTAL_VOLTAGE_CUTOFF 150
-#define DISCHARGE_CURRENT_CONSTANT_HIGH 220
-#define CHARGE_CURRENT_CONSTANT_HIGH -400
-#define MAX_VAL_CURRENT_SENSE 300
-#define CHARGE_TEMP_CRITICAL_HIGH 4400 // 44.00
-#define DISCHARGE_TEMP_CRITICAL_HIGH 6000 // 60.00
-#define VOLTAGE_DIFFERENCE_THRESHOLD 1000 //100 mV, 0.1V
-
 short voltage_cutoff_low = 2980;
 short voltage_cutoff_high = 4210;
+short total_voltage_cutoff = 150;
+short discharge_current_constant_hight = 220;
+short charge_current_constant_high = -400;
+short max_val_current_sense = 300;
+short charge_temp_critical_high = 4400;// 44.00
+short discharge_temp_critical_high = 6000; // 60.00
+short voltage_difference_threshold = 1000; //100 mV, 0.1V
 
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
@@ -197,13 +196,13 @@ void balance_cells () {
   Serial.println("Voltage Difference: ");
   Serial.println(voltage_difference);
   
-  if(voltage_difference>VOLTAGE_DIFFERENCE_THRESHOLD && bmsVoltageMessage.getLow() > voltage_cutoff_low) {// if highest cell surppasses balancing threshold 
+  if(voltage_difference>voltage_difference_threshold && bmsVoltageMessage.getLow() > voltage_cutoff_low) {// if highest cell surppasses balancing threshold 
     Serial.println("Balancing!");
     for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
             if(!ignore_cell[ic][cell]){
                 uint16_t cell_voltage = cell_voltages[ic][cell];// current cell voltage in mV
-                if (cell_voltage > bmsVoltageMessage.getLow()+VOLTAGE_DIFFERENCE_THRESHOLD){//cell over bmsVoltage + threshold to which we balance
+                if (cell_voltage > bmsVoltageMessage.getLow()+voltage_difference_threshold){//cell over bmsVoltage + threshold to which we balance
                     cell_discharging[ic][cell] = true;
                     //activate discharge resistor across that cell
                     //set cell to discharging
@@ -316,7 +315,7 @@ void process_voltages() {
         Serial.print("min IC: "); Serial.println(minIC);
         Serial.print("min Cell: "); Serial.println(minCell); Serial.println();
     }
-    if (bmsVoltageMessage.getTotal() > TOTAL_VOLTAGE_CUTOFF) {
+    if (bmsVoltageMessage.getTotal() > total_voltage_cutoff) {
         bmsStatusMessage.setTotalVoltageHigh(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
     }
@@ -387,7 +386,7 @@ void process_temps() {
     bmsTempMessage.setAvgTemp((uint16_t) avgTemp);
 
     if (bmsCurrentMessage.getChargingState() == 0) { // discharging
-        if (bmsTempMessage.getHighTemp() > DISCHARGE_TEMP_CRITICAL_HIGH) {
+        if (bmsTempMessage.getHighTemp() > discharge_temp_critical_high) {
             bmsStatusMessage.setDischargeOvertemp(true);
             Serial.println("TEMPERATURE FAULT!!!!!!!!!!!!!!!!!!!");
         }
@@ -467,18 +466,18 @@ float process_current() {
     // max current sensor reading +/- 300A
     // current = 300 * (V - 2.5v) / 2v
     double senseVoltage = analogRead(CURRENT_SENSE) * 5.0 / 1024;
-    float current = (float) MAX_VAL_CURRENT_SENSE * (senseVoltage - 2.5) / 2;
+    float current = (float) max_val_current_sense * (senseVoltage - 2.5) / 2;
     Serial.print("Current: "); Serial.println(current);
     bmsCurrentMessage.setCurrent(current);
     if (current < 0) {
         bmsCurrentMessage.setChargingState(CHARGING);
-        if (bmsCurrentMessage.getCurrent() < CHARGE_CURRENT_CONSTANT_HIGH) {
+        if (bmsCurrentMessage.getCurrent() < charge_current_constant_high) {
             bmsStatusMessage.setChargeOvercurrent(true);
             Serial.println("CHARGE CURRENT HIGH FAULT!!!!!!!!!!!!!!!!!!!");
         }
     } else if (current > 0) {
         bmsCurrentMessage.setChargingState(DISCHARGING);
-        if (bmsCurrentMessage.getCurrent() > DISCHARGE_CURRENT_CONSTANT_HIGH) {
+        if (bmsCurrentMessage.getCurrent() > discharge_current_constant_high) {
             bmsStatusMessage.setDischargeOvercurrent(true);
             Serial.println("DISCHARGE CURRENT HIGH FAULT!!!!!!!!!!!!!!!!!!!");
         }
