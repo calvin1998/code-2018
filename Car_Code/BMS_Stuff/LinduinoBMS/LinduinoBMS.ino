@@ -38,7 +38,7 @@
 
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
-#define TOTAL_CELLS 9
+#define TOTAL_CELLS 12
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
 #define THERMISTOR_ISTOR_VALUE 6700 // TODO: Double check what istor is used on the istor divider.
 uint16_t cell_voltages[TOTAL_IC][12]; // contains 12 battery cell voltages. Sto numbers in 0.1 mV units.
@@ -48,8 +48,8 @@ uint16_t aux_voltages[TOTAL_IC][6]; // contains auxiliary pin voltages.
       * Thermistor 2
       * Thermistor 3
       */
-int16_t cell_delta_voltage[TOTAL_IC][9]; // keep track of which cells are being discharged
-int16_t ignore_cell[TOTAL_IC][9]; //cells to be ignored for Balance testing
+int16_t cell_delta_voltage[TOTAL_IC][TOTAL_CELLS]; // keep track of which cells are being discharged
+int16_t ignore_cell[TOTAL_IC][TOTAL_CELLS]; //cells to be ignored for Balance testing
 
 /*!<
   The tx_cfg[][6] sto the LTC6804 configuration data that is going to be written
@@ -115,10 +115,10 @@ void setup() {
     Serial.println("Setup Complete!");
     
     // DEBUG Code for testing cell packs
-    ignore_cell[0][3] = true;
+    /*ignore_cell[0][3] = true;
     ignore_cell[0][4] = true;
     ignore_cell[0][5] = true;
-    ignore_cell[0][6] = true;
+    ignore_cell[0][6] = true;*/
 }
 
 // NOTE: Implement Coulomb counting to track state of charge of battery.
@@ -128,7 +128,7 @@ void setup() {
 
 void loop() {
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
-    bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
+    //bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
     balance_cells();
     process_temps(); // sto datap in bmsTempMessage object.
     /*process_current(); // sto data in bmsCurrentMessage object.
@@ -174,11 +174,18 @@ void discharge_cell(int ic, int cell) {
 void discharge_cell(int ic, int cell, bool setDischarge) {
     if (ic < TOTAL_IC && cell < TOTAL_CELLS) {
         if (cell < 8) {
-            tx_cfg[ic][4] = tx_cfg[ic][4] | (0b1 << cell); 
+            if(setDischarge){
+                tx_cfg[ic][4] = tx_cfg[ic][4] | (0b1 << cell); 
+            }else{
+                tx_cfg[ic][4] = tx_cfg[ic][4] & ~(0b1 << cell ); 
+            }
         } else {
-            tx_cfg[ic][5] = tx_cfg[ic][5] | (0b1 << (cell - 8)); 
+            if(setDischarge){
+                tx_cfg[ic][5] = tx_cfg[ic][5] | (0b1 << (cell - 8)); 
+            }else{
+                tx_cfg[ic][5] = tx_cfg[ic][5] & ~(0b1 << (cell - 8)); 
+            }
         }
-        // TODO: Handle logic for unsetting discharge
     }
     wakeFromSleepAllChips();
 }
@@ -190,6 +197,19 @@ void dischargeAll() {
     }
     wakeFromSleepAllChips();
 }
+
+void stop_discharge_cell(int ic, int cell) {
+    discharge_cell(ic, cell, false);
+}
+
+void stop_dischargeAll() {
+    for (int i = 0; i < TOTAL_IC; i++) {
+        tx_cfg[i][4] = 0b11111111;
+        tx_cfg[i][5] = tx_cfg[i][5] | 0b00001111;
+    }
+    wakeFromSleepAllChips();
+}
+
 
 void balance_cells () {
   voltage_difference = bmsVoltageMessage.getHigh() - bmsVoltageMessage.getLow();//diff between highest and lowest cell
@@ -215,6 +235,7 @@ void balance_cells () {
                     Serial.println(cell_voltage);
                 } else {
                     cell_discharging[ic][cell] = false;
+                    stop_discharge_cell(ic,cell);
                     Serial.print("Not Discharging \t  Cell: Pack: ");
                     Serial.print(ic);
                     Serial.print(" cell: ");
@@ -234,6 +255,7 @@ void balance_cells () {
                 if (cell_discharging[ic][cell]){
                     cell_discharging[ic][cell] = false;
                     Serial.print("Stopping Discharging of Cell:");
+                    stop_discharge_cell(ic,cell);
                     Serial.print(ic);
                     Serial.print(" ");
                     Serial.println(cell);
