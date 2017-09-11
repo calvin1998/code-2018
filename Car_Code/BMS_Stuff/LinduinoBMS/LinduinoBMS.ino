@@ -34,7 +34,7 @@
 #define MAX_VAL_CURRENT_SENSE 300
 #define CHARGE_TEMP_CRITICAL_HIGH 4400 // 44.00
 #define DISCHARGE_TEMP_CRITICAL_HIGH 6000 // 60.00
-#define VOLTAGE_DIFFERENCE_THRESHOLD 842 //100 mV, 0.1V
+#define VOLTAGE_DIFFERENCE_THRESHOLD 200 //100 mV, 0.1V
 
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
@@ -230,7 +230,7 @@ void balance_cells () {
                   uint16_t cell_voltage = cell_voltages[ic][cell]; // current cell voltage in mV
                   if (cell_discharging[ic][cell])
                   {
-                      if (cell_voltage < bmsVoltageMessage.getLow() + VOLTAGE_DIFFERENCE_THRESHOLD * 0.5)
+                      if (cell_voltage < bmsVoltageMessage.getLow() + VOLTAGE_DIFFERENCE_THRESHOLD * 0.8)
                       {
                           stop_discharge_cell(ic, cell);
                       }
