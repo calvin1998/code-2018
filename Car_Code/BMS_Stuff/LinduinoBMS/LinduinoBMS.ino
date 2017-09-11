@@ -34,7 +34,7 @@
 #define MAX_VAL_CURRENT_SENSE 300
 #define CHARGE_TEMP_CRITICAL_HIGH 4400 // 44.00
 #define DISCHARGE_TEMP_CRITICAL_HIGH 6000 // 60.00
-#define VOLTAGE_DIFFERENCE_THRESHOLD 1000 //100 mV, 0.1V
+#define VOLTAGE_DIFFERENCE_THRESHOLD 842 //100 mV, 0.1V
 
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
@@ -168,6 +168,7 @@ void init_cfg()
 }
 
 void discharge_cell(int ic, int cell) {
+    cell_discharging[ic][cell] = true;
     discharge_cell(ic, cell, true);
 }
 
@@ -198,7 +199,9 @@ void dischargeAll() {
     wakeFromSleepAllChips();
 }
 
-void stop_discharge_cell(int ic, int cell) {
+void stop_discharge_cell(int ic, int cell)
+{
+    cell_discharging[ic][cell] = false;
     discharge_cell(ic, cell, false);
 }
 
@@ -215,54 +218,52 @@ void balance_cells () {
   voltage_difference = bmsVoltageMessage.getHigh() - bmsVoltageMessage.getLow();//diff between highest and lowest cell
   Serial.println("Voltage Difference: ");
   Serial.println(voltage_difference);
-  
-  if(voltage_difference>VOLTAGE_DIFFERENCE_THRESHOLD && bmsVoltageMessage.getLow() > VOLTAGE_LOW_CUTOFF) {// if highest cell surppasses balancing threshold 
-    Serial.println("Balancing!");
-    for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
-        for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
-            if(!ignore_cell[ic][cell]){
-                uint16_t cell_voltage = cell_voltages[ic][cell];// current cell voltage in mV
-                if (cell_voltage > bmsVoltageMessage.getLow()+VOLTAGE_DIFFERENCE_THRESHOLD){//cell over bmsVoltage + threshold to which we balance
-                    cell_discharging[ic][cell] = true;
-                    //activate discharge resistor across that cell
-                    //set cell to discharging
-                    discharge_cell(ic,cell);
-                    Serial.print("Discharging \t Cell: Pack: ");
-                    Serial.print(ic);
-                    Serial.print(" cell: ");
-                    Serial.print(cell);
-                    Serial.print(" voltage (V) ");
-                    Serial.println(cell_voltage);
-                } else {
-                    cell_discharging[ic][cell] = false;
-                    stop_discharge_cell(ic,cell);
-                    Serial.print("Not Discharging \t  Cell: Pack: ");
-                    Serial.print(ic);
-                    Serial.print(" cell: ");
-                    Serial.println(cell);
-                    Serial.print(" voltage (V) ");
-                    Serial.println(cell_voltage);
-                    //disable discharging
-                }
-            }
-        }
-    }
-  }else{
+
+  if (bmsVoltageMessage.getLow() > VOLTAGE_LOW_CUTOFF)
+  { // if highest cell surppasses balancing threshold
+      for (int ic = 0; ic < TOTAL_IC; ic++)
+      { // for IC
+          for (int cell = 0; cell < TOTAL_CELLS; cell++)
+          { // for Cell
+              if (!ignore_cell[ic][cell])
+              {
+                  uint16_t cell_voltage = cell_voltages[ic][cell]; // current cell voltage in mV
+                  if (cell_discharging[ic][cell])
+                  {
+                      if (cell_voltage < bmsVoltageMessage.getLow() + VOLTAGE_DIFFERENCE_THRESHOLD * 0.5)
+                      {
+                          stop_discharge_cell(ic, cell);
+                      }
+                  }
+                  else if (cell_voltage > bmsVoltageMessage.getLow() + VOLTAGE_DIFFERENCE_THRESHOLD)
+                      { //cell over bmsVoltage + threshold to which we balance
+                          discharge_cell(ic, cell);
+                  }
+              }
+          }
+      }
+  }
+  else
+  {
       Serial.println("Not Balancing!");
-       for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
-        for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
-            if(!ignore_cell[ic][cell]){
-                if (cell_discharging[ic][cell]){
-                    cell_discharging[ic][cell] = false;
-                    Serial.print("Stopping Discharging of Cell:");
-                    stop_discharge_cell(ic,cell);
-                    Serial.print(ic);
-                    Serial.print(" ");
-                    Serial.println(cell);
-                }
-            }
-        }
-    }   //make sure all cells not discharging
+      for (int ic = 0; ic < TOTAL_IC; ic++)
+      { // for IC
+          for (int cell = 0; cell < TOTAL_CELLS; cell++)
+          { // for Cell
+              if (!ignore_cell[ic][cell])
+              {
+                  if (cell_discharging[ic][cell])
+                  {
+                      cell_discharging[ic][cell] = false;
+                      Serial.print("Stopping Discharging of Cell:");
+                      stop_discharge_cell(ic, cell);
+                      Serial.print(ic);
+                      Serial.print(" ");
+                      Serial.println(cell);
+                  }
+              }
+          }
+      } //make sure all cells not discharging
   }
 }
 void poll_cell_voltage() {
@@ -318,8 +319,6 @@ void process_voltages() {
     avgVolt = totalVolts / (TOTAL_IC * TOTAL_CELLS); // stored as double volts
     bmsVoltageMessage.setAverage(static_cast<uint16_t>(avgVolt * 1000 + 0.5)); // stored in millivolts
     bmsVoltageMessage.setTotal(static_cast<uint16_t>(totalVolts + 0.5)); // number is in units volts
-    minVolt = minVolt + 5;
-    maxVolt = maxVolt + 5;
     bmsVoltageMessage.setLow(minVolt);
     bmsVoltageMessage.setHigh(maxVolt);
 
@@ -552,7 +551,11 @@ void printCells() {
             }
             Serial.print(": ");
             float voltage = cell_voltages[current_ic][i] * 0.0001;
-            Serial.println(voltage, 4);
+            Serial.print(voltage, 4);
+            Serial.print(" Discharging: ");
+            Serial.print(cell_discharging[current_ic][i]); 
+            Serial.print(" Voltage difference: ");
+            Serial.println(cell_voltages[current_ic][i]-bmsVoltageMessage.getLow());
         }
         Serial.println();
     }
