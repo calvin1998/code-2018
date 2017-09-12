@@ -29,19 +29,20 @@
 short voltage_cutoff_low = 2980;
 short voltage_cutoff_high = 4210;
 short total_voltage_cutoff = 150;
-short discharge_current_constant_hight = 220;
+short discharge_current_constant_high = 220;
 short charge_current_constant_high = -400;
 short max_val_current_sense = 300;
 short charge_temp_critical_high = 4400;// 44.00
 short discharge_temp_critical_high = 6000; // 60.00
 short voltage_difference_threshold = 1000; //100 mV, 0.1V
 
+#define ENABLE_CAN false // use this definition to enable or disable CAN
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
 #define TOTAL_CELLS 9
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
-#define THERMISTOR_ISTOR_VALUE 6700 // TODO: Double check what istor is used on the istor divider.
-uint16_t cell_voltages[TOTAL_IC][12]; // contains 12 battery cell voltages. Sto numbers in 0.1 mV units.
+#define THERMISTOR_RESISTOR_VALUE 6700 // TODO: Double check what resistor is used on the resistor divider.
+uint16_t cell_voltages[TOTAL_IC][12]; // contains 12 battery cell voltages. Numbers are stored in 0.1 mV units.
 uint16_t aux_voltages[TOTAL_IC][6]; // contains auxiliary pin voltages.
      /* Data contained in this array is in this format:
       * Thermistor 1
@@ -101,11 +102,13 @@ void setup() {
     delay(2000);
 
     // Check CAN Initialization
-    // while (CAN_OK = CAN.begin(CAN_500KBPS)) {
-    //     Serial.println("Init CAN BUS Shield FAILED. Retrying");
-    //     delay(100);
-    // }
-    Serial.println("CAN BUS Shield init GOOD");
+    if (ENABLE_CAN) {
+        while (CAN_OK == CAN.begin(CAN_500KBPS)) {
+            Serial.println("Init CAN BUS Shield FAILED. Retrying");
+            delay(100);
+        }        
+        Serial.println("CAN BUS Shield init GOOD");
+    }
 
     LTC6804_initialize();
     init_cfg();
@@ -127,6 +130,14 @@ void setup() {
  */
 
 void loop() {
+    if (ENABLE_CAN) {
+        while (CAN.read(msg)) {
+            if (msg.id == NULL) {
+                // lines set out for changing BMS variables TODO
+                Serial.println("Reading BMS");
+            }
+        }    
+    }
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
     bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
     balance_cells();
@@ -391,7 +402,7 @@ void process_temps() {
             Serial.println("TEMPERATURE FAULT!!!!!!!!!!!!!!!!!!!");
         }
     } else if (bmsCurrentMessage.getChargingState() == 1) { // charging
-        if (bmsTempMessage.getHighTemp() > CHARGE_TEMP_CRITICAL_HIGH) {
+        if (bmsTempMessage.getHighTemp() > charge_temp_critical_high) {
             bmsStatusMessage.setChargeOvertemp(true);
             Serial.println("TEMPERATURE FAULT!!!!!!!!!!!!!!!!!!!");
         }
