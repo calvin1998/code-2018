@@ -188,6 +188,7 @@ void discharge_cell(int ic, int cell, bool setDischarge) {
             }
         }
     }
+    LTC6804_wrcfg(TOTAL_IC, tx_cfg);
     wakeFromSleepAllChips();
 }
 
@@ -196,6 +197,7 @@ void dischargeAll() {
         tx_cfg[i][4] = 0b11111111;
         tx_cfg[i][5] = tx_cfg[i][5] | 0b00001111;
     }
+    LTC6804_wrcfg(TOTAL_IC, tx_cfg);
     wakeFromSleepAllChips();
 }
 
@@ -207,9 +209,10 @@ void stop_discharge_cell(int ic, int cell)
 
 void stop_dischargeAll() {
     for (int i = 0; i < TOTAL_IC; i++) {
-        tx_cfg[i][4] = 0b11111111;
-        tx_cfg[i][5] = tx_cfg[i][5] | 0b00001111;
+        tx_cfg[i][4] = 0b0;
+        tx_cfg[i][5] = 0b0;
     }
+    LTC6804_wrcfg(TOTAL_IC, tx_cfg);
     wakeFromSleepAllChips();
 }
 
@@ -230,7 +233,7 @@ void balance_cells () {
                   uint16_t cell_voltage = cell_voltages[ic][cell]; // current cell voltage in mV
                   if (cell_discharging[ic][cell])
                   {
-                      if (cell_voltage < bmsVoltageMessage.getLow() + VOLTAGE_DIFFERENCE_THRESHOLD * 0.8)
+                      if (cell_voltage < bmsVoltageMessage.getLow() + VOLTAGE_DIFFERENCE_THRESHOLD - 4)
                       {
                           stop_discharge_cell(ic, cell);
                       }
@@ -246,24 +249,8 @@ void balance_cells () {
   else
   {
       Serial.println("Not Balancing!");
-      for (int ic = 0; ic < TOTAL_IC; ic++)
-      { // for IC
-          for (int cell = 0; cell < TOTAL_CELLS; cell++)
-          { // for Cell
-              if (!ignore_cell[ic][cell])
-              {
-                  if (cell_discharging[ic][cell])
-                  {
-                      cell_discharging[ic][cell] = false;
-                      Serial.print("Stopping Discharging of Cell:");
-                      stop_discharge_cell(ic, cell);
-                      Serial.print(ic);
-                      Serial.print(" ");
-                      Serial.println(cell);
-                  }
-              }
-          }
-      } //make sure all cells not discharging
+      stop_dischargeAll();
+      //make sure all cells not discharging
   }
 }
 void poll_cell_voltage() {
