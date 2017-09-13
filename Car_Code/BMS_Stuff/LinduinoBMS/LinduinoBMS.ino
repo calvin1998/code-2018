@@ -218,12 +218,8 @@ void stop_dischargeAll() {
 
 
 void balance_cells () {
-  voltage_difference = bmsVoltageMessage.getHigh() - bmsVoltageMessage.getLow();//diff between highest and lowest cell
-  Serial.println("Voltage Difference: ");
-  Serial.println(voltage_difference);
-
   if (bmsVoltageMessage.getLow() > VOLTAGE_LOW_CUTOFF)
-  { // if highest cell surppasses balancing threshold
+  { 
       for (int ic = 0; ic < TOTAL_IC; ic++)
       { // for IC
           for (int cell = 0; cell < TOTAL_CELLS; cell++)
@@ -239,7 +235,7 @@ void balance_cells () {
                       }
                   }
                   else if (cell_voltage > bmsVoltageMessage.getLow() + VOLTAGE_DIFFERENCE_THRESHOLD)
-                      { //cell over bmsVoltage + threshold to which we balance
+                      {
                           discharge_cell(ic, cell);
                   }
               }
@@ -250,7 +246,7 @@ void balance_cells () {
   {
       Serial.println("Not Balancing!");
       stop_dischargeAll();
-      //make sure all cells not discharging
+      //make sure none of the cells are discharging
   }
 }
 void poll_cell_voltage() {
