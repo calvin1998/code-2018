@@ -15,7 +15,7 @@ BMS_config::BMS_config(uint8_t buf[]) {
 
 BMS_config::BMS_config(uint8_t addr, short val) {
     setAddress(addr);
-    setValue(value);
+    setValue(val);
 }
 
 void BMS_config::load(uint8_t buf[]) {

@@ -296,8 +296,8 @@ class BMS_config {
         void write(uint8_t buf[]);
         uint8_t getAddress();
         short getValue();
-        void setAddress();
-        void setValue();
+        void setAddress(uint8_t addr);
+        void setValue(short val);
     private:
         CAN_message_bms_config_t bmsConfigMessage;
 };
