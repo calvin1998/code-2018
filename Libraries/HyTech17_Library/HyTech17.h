@@ -300,7 +300,7 @@ class BMS_config {
         void setValue();
     private:
         CAN_message_bms_config_t bmsConfigMessage;
-}
+};
 
 typedef struct CAN_message_bms_temperature_t {
     uint16_t avgTemp;
