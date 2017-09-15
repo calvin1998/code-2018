@@ -229,7 +229,7 @@ void balance_cells () {
                   uint16_t cell_voltage = cell_voltages[ic][cell]; // current cell voltage in mV
                   if (cell_discharging[ic][cell])
                   {
-                      if (cell_voltage < bmsVoltageMessage.getLow() + VOLTAGE_DIFFERENCE_THRESHOLD - 4)
+                      if (cell_voltage < bmsVoltageMessage.getLow() + VOLTAGE_DIFFERENCE_THRESHOLD - 6)
                       {
                           stop_discharge_cell(ic, cell);
                       }
@@ -538,7 +538,9 @@ void printCells() {
             Serial.print(" Discharging: ");
             Serial.print(cell_discharging[current_ic][i]); 
             Serial.print(" Voltage difference: ");
-            Serial.println(cell_voltages[current_ic][i]-bmsVoltageMessage.getLow());
+            Serial.print(cell_voltages[current_ic][i]-bmsVoltageMessage.getLow());
+            Serial.print(" Delta To Threshold: ");
+            Serial.println(VOLTAGE_DIFFERENCE_THRESHOLD-(cell_voltages[current_ic][i]-bmsVoltageMessage.getLow()));
         }
         Serial.println();
     }
