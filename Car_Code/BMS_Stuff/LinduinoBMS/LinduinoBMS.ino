@@ -4,7 +4,7 @@
  */
 
 #include <Arduino.h>
-#include "mcp_can.h"
+#include <FlexCAN.h>
 #include "LTC68041.h"
 #include "HyTech17.h"
 
@@ -67,9 +67,8 @@ uint8_t tx_cfg[TOTAL_IC][6]; // data defining how data will be written to daisy 
 /**
  * CAN Variables
  */
-#define CAN_SPI_CS_PIN 10
-MCP_CAN CAN(CAN_SPI_CS_PIN);
-long msTimer = 0;
+FlexCAN CAN(500000);
+static CAN_message_t msg;
 
 /**
  * BMS State Variables
@@ -93,22 +92,15 @@ void setup() {
     // put your setup code here, to run once:
     pinMode(BMS_OK_PIN, OUTPUT);
     pinMode(WATCH_DOG_TIMER, OUTPUT);
-    pinMode(CAN_SPI_CS_PIN, OUTPUT);// Not needed, done in mcp_can.cpp
 
-    digitalWrite(CAN_SPI_CS_PIN, HIGH);
     digitalWrite(BMS_OK_PIN, HIGH);
 
     Serial.begin(115200);
-    delay(2000);
-
-    // Check CAN Initialization
     if (ENABLE_CAN) {
-        while (CAN_OK == CAN.begin(CAN_500KBPS)) {
-            Serial.println("Init CAN BUS Shield FAILED. Retrying");
-            delay(100);
-        }        
-        Serial.println("CAN BUS Shield init GOOD");
+        CAN.begin();
     }
+
+    delay(2000);
 
     LTC6804_initialize();
     init_cfg();
@@ -132,6 +124,7 @@ void setup() {
 void loop() {
     if (ENABLE_CAN) {
         while (CAN.read(msg)) {
+<<<<<<< HEAD
             if (msg.id == ID_BMS_CONFIG) {
                 BMS_config bms_config = BMS_config(msg.buf);
                 if (updateConstraints(bms_config.getAddress(), bms_config.getValue())) {
@@ -139,6 +132,11 @@ void loop() {
                     // send response message
                 }
                 // write to eeprom
+=======
+            if (msg.id == NULL) { // TODO replace with approate definition
+                // lines set out for changing BMS variables TODO
+                Serial.println("Reading BMS");
+>>>>>>> d65f0fe52ad265466cabb41e8adc50f4565868dc
             }
         }    
     }
