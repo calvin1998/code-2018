@@ -92,7 +92,7 @@ void setup() {
     // put your setup code here, to run once:
     pinMode(BMS_OK_PIN, OUTPUT);
     pinMode(WATCH_DOG_TIMER, OUTPUT);
-
+    pinMode(10,OUTPUT);
     digitalWrite(BMS_OK_PIN, HIGH);
 
     Serial.begin(115200);
