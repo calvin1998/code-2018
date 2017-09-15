@@ -4,7 +4,7 @@
  */
 
 #include <Arduino.h>
-#include "mcp_can.h"
+#include <FlexCAN.h>
 #include "LTC68041.h"
 #include "HyTech17.h"
 
@@ -26,22 +26,23 @@
  */
 
 /************BATTERY CONSTRAINTS AND CONSTANTS**********************/
-#define VOLTAGE_LOW_CUTOFF 2980
-#define VOLTAGE_HIGH_CUTOFF 4210
-#define TOTAL_VOLTAGE_CUTOFF 150
-#define DISCHARGE_CURRENT_CONSTANT_HIGH 220
-#define CHARGE_CURRENT_CONSTANT_HIGH -400
-#define MAX_VAL_CURRENT_SENSE 300
-#define CHARGE_TEMP_CRITICAL_HIGH 4400 // 44.00
-#define DISCHARGE_TEMP_CRITICAL_HIGH 6000 // 60.00
-#define VOLTAGE_DIFFERENCE_THRESHOLD 200 //100 mV, 0.1V
+short voltage_cutoff_low = 2980;
+short voltage_cutoff_high = 4210;
+short total_voltage_cutoff = 150;
+short discharge_current_constant_high = 220;
+short charge_current_constant_high = -400;
+short max_val_current_sense = 300;
+short charge_temp_critical_high = 4400;// 44.00
+short discharge_temp_critical_high = 6000; // 60.00
+short voltage_difference_threshold = 200; //100 mV, 0.1V
 
+#define ENABLE_CAN false // use this definition to enable or disable CAN
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
 #define TOTAL_CELLS 12
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
-#define THERMISTOR_ISTOR_VALUE 6700 // TODO: Double check what istor is used on the istor divider.
-uint16_t cell_voltages[TOTAL_IC][12]; // contains 12 battery cell voltages. Sto numbers in 0.1 mV units.
+#define THERMISTOR_RESISTOR_VALUE 6700 // TODO: Double check what resistor is used on the resistor divider.
+uint16_t cell_voltages[TOTAL_IC][12]; // contains 12 battery cell voltages. Numbers are stored in 0.1 mV units.
 uint16_t aux_voltages[TOTAL_IC][6]; // contains auxiliary pin voltages.
      /* Data contained in this array is in this format:
       * Thermistor 1
@@ -66,9 +67,8 @@ uint8_t tx_cfg[TOTAL_IC][6]; // data defining how data will be written to daisy 
 /**
  * CAN Variables
  */
-#define CAN_SPI_CS_PIN 10
-MCP_CAN CAN(CAN_SPI_CS_PIN);
-long msTimer = 0;
+FlexCAN CAN(500000);
+static CAN_message_t msg;
 
 /**
  * BMS State Variables
@@ -92,20 +92,15 @@ void setup() {
     // put your setup code here, to run once:
     pinMode(BMS_OK_PIN, OUTPUT);
     pinMode(WATCH_DOG_TIMER, OUTPUT);
-    pinMode(CAN_SPI_CS_PIN, OUTPUT);// Not needed, done in mcp_can.cpp
 
-    digitalWrite(CAN_SPI_CS_PIN, HIGH);
     digitalWrite(BMS_OK_PIN, HIGH);
 
     Serial.begin(115200);
-    delay(2000);
+    if (ENABLE_CAN) {
+        CAN.begin();
+    }
 
-    // Check CAN Initialization
-    // while (CAN_OK = CAN.begin(CAN_500KBPS)) {
-    //     Serial.println("Init CAN BUS Shield FAILED. Retrying");
-    //     delay(100);
-    // }
-    Serial.println("CAN BUS Shield init GOOD");
+    delay(2000);
 
     LTC6804_initialize();
     init_cfg();
@@ -127,6 +122,14 @@ void setup() {
  */
 
 void loop() {
+    if (ENABLE_CAN) {
+        while (CAN.read(msg)) {
+            if (msg.id == NULL) { // TODO replace with approate definition
+                // lines set out for changing BMS variables TODO
+                Serial.println("Reading BMS");
+            }
+        }    
+    }
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
     //bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
     balance_cells();
@@ -306,20 +309,20 @@ void process_voltages() {
     bmsVoltageMessage.setHigh(maxVolt);
 
     // TODO: Low and High voltage error checking.
-    if (bmsVoltageMessage.getHigh() > VOLTAGE_HIGH_CUTOFF) {
+    if (bmsVoltageMessage.getHigh() > voltage_cutoff_high) {
         bmsStatusMessage.setOvervoltage(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
         Serial.print("max IC: "); Serial.println(maxIC);
         Serial.print("max Cell: "); Serial.println(maxCell); Serial.println();
     }
 
-    if (bmsVoltageMessage.getLow() < VOLTAGE_LOW_CUTOFF) {
+    if (bmsVoltageMessage.getLow() < voltage_cutoff_low) {
         bmsStatusMessage.setUndervoltage(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
         Serial.print("min IC: "); Serial.println(minIC);
         Serial.print("min Cell: "); Serial.println(minCell); Serial.println();
     }
-    if (bmsVoltageMessage.getTotal() > TOTAL_VOLTAGE_CUTOFF) {
+    if (bmsVoltageMessage.getTotal() > total_voltage_cutoff) {
         bmsStatusMessage.setTotalVoltageHigh(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
     }
@@ -390,12 +393,12 @@ void process_temps() {
     bmsTempMessage.setAvgTemp((uint16_t) avgTemp);
 
     if (bmsCurrentMessage.getChargingState() == 0) { // discharging
-        if (bmsTempMessage.getHighTemp() > DISCHARGE_TEMP_CRITICAL_HIGH) {
+        if (bmsTempMessage.getHighTemp() > discharge_temp_critical_high) {
             bmsStatusMessage.setDischargeOvertemp(true);
             Serial.println("TEMPERATURE FAULT!!!!!!!!!!!!!!!!!!!");
         }
     } else if (bmsCurrentMessage.getChargingState() == 1) { // charging
-        if (bmsTempMessage.getHighTemp() > CHARGE_TEMP_CRITICAL_HIGH) {
+        if (bmsTempMessage.getHighTemp() > charge_temp_critical_high) {
             bmsStatusMessage.setChargeOvertemp(true);
             Serial.println("TEMPERATURE FAULT!!!!!!!!!!!!!!!!!!!");
         }
@@ -470,18 +473,18 @@ float process_current() {
     // max current sensor reading +/- 300A
     // current = 300 * (V - 2.5v) / 2v
     double senseVoltage = analogRead(CURRENT_SENSE) * 5.0 / 1024;
-    float current = (float) MAX_VAL_CURRENT_SENSE * (senseVoltage - 2.5) / 2;
+    float current = (float) max_val_current_sense * (senseVoltage - 2.5) / 2;
     Serial.print("Current: "); Serial.println(current);
     bmsCurrentMessage.setCurrent(current);
     if (current < 0) {
         bmsCurrentMessage.setChargingState(CHARGING);
-        if (bmsCurrentMessage.getCurrent() < CHARGE_CURRENT_CONSTANT_HIGH) {
+        if (bmsCurrentMessage.getCurrent() < charge_current_constant_high) {
             bmsStatusMessage.setChargeOvercurrent(true);
             Serial.println("CHARGE CURRENT HIGH FAULT!!!!!!!!!!!!!!!!!!!");
         }
     } else if (current > 0) {
         bmsCurrentMessage.setChargingState(DISCHARGING);
-        if (bmsCurrentMessage.getCurrent() > DISCHARGE_CURRENT_CONSTANT_HIGH) {
+        if (bmsCurrentMessage.getCurrent() > discharge_current_constant_high) {
             bmsStatusMessage.setDischargeOvercurrent(true);
             Serial.println("DISCHARGE CURRENT HIGH FAULT!!!!!!!!!!!!!!!!!!!");
         }
@@ -501,6 +504,41 @@ void wakeFromIdleAllChips() {
         wakeup_idle();
 //        delay(3);
     }
+}
+
+int updateConstraints(uint8_t address, short value) {
+    switch(address) {
+        case 0: // voltage_cutoff_low
+            voltage_cutoff_low = value;
+            break;
+        case 1: // voltage_cutoff_high
+            voltage_cutoff_high = value;
+            break;
+        case 2: // total_voltage_cutoff
+            total_voltage_cutoff = value;
+            break;
+        case 3: // discharge_current_constant_high
+            discharge_current_constant_high = value;
+            break;
+        case 4: // charge_current_constant_high
+            charge_current_constant_high = value;
+            break;
+        case 5: // max_val_current_sense
+            max_val_current_sense = value;
+            break;
+        case 6: // charge_temp_critical_high
+            charge_temp_critical_high = value;
+            break;
+        case 7: // discharge_temp_critical_high
+            discharge_temp_critical_high = value;
+            break;
+        case 8: // voltage_difference_threshold
+            voltage_difference_threshold = value;
+            break;
+        default:
+            return -1;
+    }
+    return 0;
 }
 
 void writeToCAN() {
