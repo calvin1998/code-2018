@@ -132,9 +132,13 @@ void setup() {
 void loop() {
     if (ENABLE_CAN) {
         while (CAN.read(msg)) {
-            if (msg.id == NULL) {
-                // lines set out for changing BMS variables TODO
-                Serial.println("Reading BMS");
+            if (msg.id == ID_BMS_CONFIG) {
+                BMS_config bms_config = BMS_config(msg.buf);
+                if (updateConstraints(bms_config.getAddress(), bms_config.getValue())) {
+                    Serial.println("BMS constraint update failed");
+                    // send response message
+                }
+                // write to eeprom
             }
         }    
     }
@@ -508,6 +512,41 @@ void wakeFromIdleAllChips() {
         wakeup_idle();
 //        delay(3);
     }
+}
+
+int updateConstraints(uint8_t address, short value) {
+    switch(address) {
+        case 0: // voltage_cutoff_low
+            voltage_cutoff_low = value;
+            break;
+        case 1: // voltage_cutoff_high
+            voltage_cutoff_high = value;
+            break;
+        case 2: // total_voltage_cutoff
+            total_voltage_cutoff = value;
+            break;
+        case 3: // discharge_current_constant_high
+            discharge_current_constant_high = value;
+            break;
+        case 4: // charge_current_constant_high
+            charge_current_constant_high = value;
+            break;
+        case 5: // max_val_current_sense
+            max_val_current_sense = value;
+            break;
+        case 6: // charge_temp_critical_high
+            charge_temp_critical_high = value;
+            break;
+        case 7: // discharge_temp_critical_high
+            discharge_temp_critical_high = value;
+            break;
+        case 8: // voltage_difference_threshold
+            voltage_difference_threshold = value;
+            break;
+        default:
+            return -1;
+    }
+    return 0;
 }
 
 void writeToCAN() {
