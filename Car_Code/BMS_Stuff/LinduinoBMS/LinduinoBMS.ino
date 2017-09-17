@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 #include <FlexCAN.h>
+#include <EEPROM.h>
 #include "LTC68041.h"
 #include "HyTech17.h"
 
@@ -124,10 +125,6 @@ void setup() {
 void loop() {
     if (ENABLE_CAN) {
         while (CAN.read(msg)) {
-            if (msg.id == NULL) { // TODO replace with appropriate definition
-                // lines set out for changing BMS variables TODO
-                Serial.println("Reading BMS");
-            }
             if (msg.id == ID_BMS_CONFIG) {
                 BMS_config bms_config = BMS_config(msg.buf);
                 if (updateConstraints(bms_config.getAddress(), bms_config.getValue())) {
@@ -157,6 +154,24 @@ void loop() {
     digitalWrite(WATCH_DOG_TIMER, watchDogFlag);*/
 
     
+}
+
+int load_config_from_EEPROM() {
+    // load config code here
+    // read byte-by-byte into a buffer
+    // every 2 bytes is one short
+    // memcpy to appropriate variable
+    // repeat for each variable
+    return 0;
+}
+
+int write_config_to_EEPROM() {
+    // write config code here
+    // memcpy into a buffer
+    // every short is 2 bytes
+    // write byte-by-byte to EEPROM
+    // repeat for each variable
+    return 0;
 }
 
 /*!***********************************
