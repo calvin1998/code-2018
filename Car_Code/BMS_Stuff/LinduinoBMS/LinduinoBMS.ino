@@ -124,7 +124,10 @@ void setup() {
 void loop() {
     if (ENABLE_CAN) {
         while (CAN.read(msg)) {
-<<<<<<< HEAD
+            if (msg.id == NULL) { // TODO replace with appropriate definition
+                // lines set out for changing BMS variables TODO
+                Serial.println("Reading BMS");
+            }
             if (msg.id == ID_BMS_CONFIG) {
                 BMS_config bms_config = BMS_config(msg.buf);
                 if (updateConstraints(bms_config.getAddress(), bms_config.getValue())) {
@@ -132,11 +135,6 @@ void loop() {
                     // send response message
                 }
                 // write to eeprom
-=======
-            if (msg.id == NULL) { // TODO replace with approate definition
-                // lines set out for changing BMS variables TODO
-                Serial.println("Reading BMS");
->>>>>>> d65f0fe52ad265466cabb41e8adc50f4565868dc
             }
         }    
     }
