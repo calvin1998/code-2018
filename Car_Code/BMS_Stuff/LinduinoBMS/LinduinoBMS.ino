@@ -34,11 +34,11 @@ short charge_current_constant_high = -400;
 short max_val_current_sense = 300;
 short charge_temp_critical_high = 4400;// 44.00
 short discharge_temp_critical_high = 6000; // 60.00
-short voltage_difference_threshold = 200; //100 mV, 0.1V
+short voltage_difference_threshold = 500; //100 mV, 0.1V
 
 #define ENABLE_CAN false // use this definition to enable or disable CAN
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
-#define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
+#define TOTAL_IC 2 // DEBUG: We have temporarily overwritten this value
 #define TOTAL_CELLS 12
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
 #define THERMISTOR_RESISTOR_VALUE 6700 // TODO: Double check what resistor is used on the resistor divider.
@@ -92,7 +92,7 @@ void setup() {
     // put your setup code here, to run once:
     pinMode(BMS_OK_PIN, OUTPUT);
     pinMode(WATCH_DOG_TIMER, OUTPUT);
-    pinMode(10,OUTPUT);
+    pinMode(10,OUTPUT);//chip select pin
     digitalWrite(BMS_OK_PIN, HIGH);
 
     Serial.begin(115200);
@@ -578,7 +578,7 @@ void printCells() {
             Serial.print(" Voltage difference: ");
             Serial.print(cell_voltages[current_ic][i]-bmsVoltageMessage.getLow());
             Serial.print(" Delta To Threshold: ");
-            Serial.println(voltage_difference_threshold-(cell_voltages[current_ic][i]-bmsVoltageMessage.getLow()));
+            Serial.println((cell_voltages[current_ic][i]-bmsVoltageMessage.getLow())-voltage_difference_threshold);
         }
         Serial.println();
     }
