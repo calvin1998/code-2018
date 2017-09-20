@@ -27,6 +27,8 @@
  */
 
 /************BATTERY CONSTRAINTS AND CONSTANTS**********************/
+#define NUM_CONSTANTS 9
+
 short voltage_cutoff_low = 2980;
 short voltage_cutoff_high = 4210;
 short total_voltage_cutoff = 150;
@@ -127,7 +129,7 @@ void loop() {
         while (CAN.read(msg)) {
             if (msg.id == ID_BMS_CONFIG) {
                 BMS_config bms_config = BMS_config(msg.buf);
-                if (updateConstraints(bms_config.getAddress(), bms_config.getValue())) {
+                if (updateConstants(bms_config.getAddress(), bms_config.getValue())) {
                     Serial.println("BMS constraint update failed");
                     // send response message
                 }
@@ -156,22 +158,33 @@ void loop() {
     
 }
 
-int load_config_from_EEPROM() {
-    // load config code here
-    // read byte-by-byte into a buffer
-    // every 2 bytes is one short
-    // memcpy to appropriate variable
+void load_config_from_EEPROM() {
+    // read byte-by-byte into a buffer: every 2 bytes is one short
+    // memcpy to temp variable and use existing function to update variable
     // repeat for each variable
-    return 0;
+    for (int i = 0; i < NUM_CONSTANTS; i++) {
+        uint8_t buffer[sizeof(short)];
+        for (int j = 0; j < sizeof(short); j++) {
+            buffer[i] = EEPROM.read((2 * i) + j);
+        }
+        short temp;
+        memcpy(&temp, &buffer, sizeof(short));
+        updateConstants(i, temp);
+    }
 }
 
-int write_config_to_EEPROM() {
-    // write config code here
-    // memcpy into a buffer
-    // every short is 2 bytes
+void write_config_to_EEPROM() {
+    // memcpy into a buffer: every short is 2 bytes
     // write byte-by-byte to EEPROM
     // repeat for each variable
-    return 0;
+    for (int i = 0; i < NUM_CONSTANTS; i++) {
+        uint8_t buffer[sizeof(short)];
+        short value = getConstantByAddress(i);
+        memcpy(&buffer, &value, sizeof(short));
+        for (int j = 0; j < sizeof(short); j++) {
+            EEPROM.write((2 * i) + j);
+        }
+    }
 }
 
 /*!***********************************
@@ -525,7 +538,7 @@ void wakeFromIdleAllChips() {
     }
 }
 
-int updateConstraints(uint8_t address, short value) {
+int updateConstants(uint8_t address, short value) {
     switch(address) {
         case 0: // voltage_cutoff_low
             voltage_cutoff_low = value;
@@ -558,6 +571,40 @@ int updateConstraints(uint8_t address, short value) {
             return -1;
     }
     return 0;
+}
+
+short getConstantByAddress(uint8_t address) {
+    switch(address) {
+        case 0: // voltage_cutoff_low
+            return voltage_cutoff_low;
+            break;
+        case 1: // voltage_cutoff_high
+            return voltage_cutoff_high;
+            break;
+        case 2: // total_voltage_cutoff
+            return total_voltage_cutoff;
+            break;
+        case 3: // discharge_current_constant_high
+            return discharge_current_constant_high;
+            break;
+        case 4: // charge_current_constant_high
+            return charge_current_constant_high;
+            break;
+        case 5: // max_val_current_sense
+            return max_val_current_sense;
+            break;
+        case 6: // charge_temp_critical_high
+            return charge_temp_critical_high;
+            break;
+        case 7: // discharge_temp_critical_high
+            return discharge_temp_critical_high;
+            break;
+        case 8: // voltage_difference_threshold
+            return voltage_difference_threshold;
+            break;
+        default:
+            return -1;
+    }
 }
 
 void writeToCAN() {
