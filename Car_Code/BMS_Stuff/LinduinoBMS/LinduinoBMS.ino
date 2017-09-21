@@ -1,4 +1,4 @@
-/**
+  /**
  * LinduinoBMS.ino - Code that runs on the BMS Linduino. This system only has one Linduino, which interfaces directly with the Car's CAN Bus
  * Created by Shrivathsav Seshan & Charith "Karvin" Dassanayake, April 11, 2017
  */
@@ -26,28 +26,31 @@
  */
 
 /************BATTERY CONSTRAINTS AND CONSTANTS**********************/
-#define VOLTAGE_LOW_CUTOFF 2980
-#define VOLTAGE_HIGH_CUTOFF 4210
-#define TOTAL_VOLTAGE_CUTOFF 150
-#define DISCHARGE_CURRENT_CONSTANT_HIGH 220
-#define CHARGE_CURRENT_CONSTANT_HIGH -400
-#define MAX_VAL_CURRENT_SENSE 300
-#define CHARGE_TEMP_CRITICAL_HIGH 4400 // 44.00
-#define DISCHARGE_TEMP_CRITICAL_HIGH 6000 // 60.00
+short voltage_cutoff_low = 2980;
+short voltage_cutoff_high = 4210;
+short total_voltage_cutoff = 150;
+short discharge_current_constant_high = 220;
+short charge_current_constant_high = -400;
+short max_val_current_sense = 300;
+short charge_temp_critical_high = 4400;// 44.00
+short discharge_temp_critical_high = 6000; // 60.00
+short voltage_difference_threshold = 1000; //100 mV, 0.1V
 
+#define ENABLE_CAN false // use this definition to enable or disable CAN
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
-#define TOTAL_IC 4
+#define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
 #define TOTAL_CELLS 9
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
-#define THERMISTOR_ISTOR_VALUE 6700 // TODO: Double check what istor is used on the istor divider.
-uint16_t cell_voltages[TOTAL_IC][12]; // contains 12 battery cell voltages. Sto numbers in 0.1 mV units.
+#define THERMISTOR_RESISTOR_VALUE 6700 // TODO: Double check what resistor is used on the resistor divider.
+uint16_t cell_voltages[TOTAL_IC][12]; // contains 12 battery cell voltages. Numbers are stored in 0.1 mV units.
 uint16_t aux_voltages[TOTAL_IC][6]; // contains auxiliary pin voltages.
      /* Data contained in this array is in this format:
       * Thermistor 1
       * Thermistor 2
       * Thermistor 3
       */
-int16_t cell_delta_voltage[TOTAL_IC][12]; // contains 12 signed dV values in 0.1 mV units
+int16_t cell_delta_voltage[TOTAL_IC][9]; // keep track of which cells are being discharged
+int16_t ignore_cell[TOTAL_IC][9]; //cells to be ignored for Balance testing
 
 /*!<
   The tx_cfg[][6] sto the LTC6804 configuration data that is going to be written
@@ -64,7 +67,7 @@ uint8_t tx_cfg[TOTAL_IC][6]; // data defining how data will be written to daisy 
 /**
  * CAN Variables
  */
-#define CAN_SPI_CS_PIN 5
+#define CAN_SPI_CS_PIN 10
 MCP_CAN CAN(CAN_SPI_CS_PIN);
 long msTimer = 0;
 
@@ -82,12 +85,15 @@ BMS_status bmsStatusMessage;
 
 int minVoltageICIndex;
 int minVoltageCellIndex;
+int voltage_difference;
+
+bool cell_discharging[TOTAL_IC][12];
 
 void setup() {
     // put your setup code here, to run once:
     pinMode(BMS_OK_PIN, OUTPUT);
     pinMode(WATCH_DOG_TIMER, OUTPUT);
-    // pinMode(CAN_SPI_CS_PIN, OUTPUT); Not needed, done in mcp_can.cpp
+    pinMode(CAN_SPI_CS_PIN, OUTPUT);// Not needed, done in mcp_can.cpp
 
     digitalWrite(CAN_SPI_CS_PIN, HIGH);
     digitalWrite(BMS_OK_PIN, HIGH);
@@ -96,11 +102,13 @@ void setup() {
     delay(2000);
 
     // Check CAN Initialization
-    while (CAN_OK != CAN.begin(CAN_500KBPS)) {
-        Serial.println("Init CAN BUS Shield FAILED. Retrying");
-        delay(100);
+    if (ENABLE_CAN) {
+        while (CAN_OK == CAN.begin(CAN_500KBPS)) {
+            Serial.println("Init CAN BUS Shield FAILED. Retrying");
+            delay(100);
+        }        
+        Serial.println("CAN BUS Shield init GOOD");
     }
-    Serial.println("CAN BUS Shield init GOOD");
 
     LTC6804_initialize();
     init_cfg();
@@ -108,6 +116,12 @@ void setup() {
     memcpy(cell_delta_voltage, cell_voltages, 2 * TOTAL_IC * TOTAL_CELLS);
     bmsCurrentMessage.setChargingState(CHARGING);
     Serial.println("Setup Complete!");
+    
+    // DEBUG Code for testing cell packs
+    ignore_cell[0][3] = true;
+    ignore_cell[0][4] = true;
+    ignore_cell[0][5] = true;
+    ignore_cell[0][6] = true;
 }
 
 // NOTE: Implement Coulomb counting to track state of charge of battery.
@@ -116,10 +130,19 @@ void setup() {
  */
 
 void loop() {
+    if (ENABLE_CAN) {
+        while (CAN.read(msg)) {
+            if (msg.id == NULL) {
+                // lines set out for changing BMS variables TODO
+                Serial.println("Reading BMS");
+            }
+        }    
+    }
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
-
+    bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
+    balance_cells();
     process_temps(); // sto datap in bmsTempMessage object.
-    process_current(); // sto data in bmsCurrentMessage object.
+    /*process_current(); // sto data in bmsCurrentMessage object.
 
     // write to CAN!
     writeToCAN();
@@ -131,7 +154,9 @@ void loop() {
     }
     watchDogFlag = !watchDogFlag; // inverting watchDogFlag
     // Prevents WATCH_DOG_TIMER timeout
-    digitalWrite(WATCH_DOG_TIMER, watchDogFlag);
+    digitalWrite(WATCH_DOG_TIMER, watchDogFlag);*/
+
+    
 }
 
 /*!***********************************
@@ -150,7 +175,23 @@ void init_cfg()
     }
     wakeFromSleepAllChips();
     LTC6804_wrcfg(TOTAL_IC, tx_cfg);
-//    dischargeAll();
+    // dischargeAll();
+}
+
+void discharge_cell(int ic, int cell) {
+    discharge_cell(ic, cell, true);
+}
+
+void discharge_cell(int ic, int cell, bool setDischarge) {
+    if (ic < TOTAL_IC && cell < TOTAL_CELLS) {
+        if (cell < 8) {
+            tx_cfg[ic][4] = tx_cfg[ic][4] | (0b1 << cell); 
+        } else {
+            tx_cfg[ic][5] = tx_cfg[ic][5] | (0b1 << (cell - 8)); 
+        }
+        // TODO: Handle logic for unsetting discharge
+    }
+    wakeFromSleepAllChips();
 }
 
 void dischargeAll() {
@@ -161,6 +202,58 @@ void dischargeAll() {
     wakeFromSleepAllChips();
 }
 
+void balance_cells () {
+  voltage_difference = bmsVoltageMessage.getHigh() - bmsVoltageMessage.getLow();//diff between highest and lowest cell
+  Serial.println("Voltage Difference: ");
+  Serial.println(voltage_difference);
+  
+  if(voltage_difference>voltage_difference_threshold && bmsVoltageMessage.getLow() > voltage_cutoff_low) {// if highest cell surppasses balancing threshold 
+    Serial.println("Balancing!");
+    for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
+        for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
+            if(!ignore_cell[ic][cell]){
+                uint16_t cell_voltage = cell_voltages[ic][cell];// current cell voltage in mV
+                if (cell_voltage > bmsVoltageMessage.getLow()+voltage_difference_threshold){//cell over bmsVoltage + threshold to which we balance
+                    cell_discharging[ic][cell] = true;
+                    //activate discharge resistor across that cell
+                    //set cell to discharging
+                    discharge_cell(ic,cell);
+                    Serial.print("Discharging \t Cell: Pack: ");
+                    Serial.print(ic);
+                    Serial.print(" cell: ");
+                    Serial.print(cell);
+                    Serial.print(" voltage (V) ");
+                    Serial.println(cell_voltage);
+                } else {
+                    cell_discharging[ic][cell] = false;
+                    Serial.print("Not Discharging \t  Cell: Pack: ");
+                    Serial.print(ic);
+                    Serial.print(" cell: ");
+                    Serial.println(cell);
+                    Serial.print(" voltage (V) ");
+                    Serial.println(cell_voltage);
+                    //disable discharging
+                }
+            }
+        }
+    }
+  }else{
+      Serial.println("Not Balancing!");
+       for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
+        for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
+            if(!ignore_cell[ic][cell]){
+                if (cell_discharging[ic][cell]){
+                    cell_discharging[ic][cell] = false;
+                    Serial.print("Stopping Discharging of Cell:");
+                    Serial.print(ic);
+                    Serial.print(" ");
+                    Serial.println(cell);
+                }
+            }
+        }
+    }   //make sure all cells not discharging
+  }
+}
 void poll_cell_voltage() {
     Serial.println("Polling Voltages...");
     /*
@@ -178,7 +271,7 @@ void poll_cell_voltage() {
     if (error == -1) {
         Serial.println("A PEC error was detected in cell voltage data");
     }
-//    printCells(); // prints the cell voltages to Serial.
+    printCells(); // prints the cell voltages to Serial.
     delay(200); // TODO: Why 200 milliseconds?
 }
 
@@ -194,7 +287,7 @@ void process_voltages() {
     int minCell = 0;
     for (int ic = 0; ic < TOTAL_IC; ic++) {
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {
-            if ((ic != 0 || cell != 4) && (ic != 1 || cell != 7)) {
+            if ((ic != 0 || cell != 4) && (ic != 1 || cell != 7)&&!ignore_cell[ic][cell]) {
                 uint16_t currentCell = cell_voltages[ic][cell];
                 cell_delta_voltage[ic][cell] = currentCell - cell_delta_voltage[ic][cell];
                 if (currentCell > maxVolt) {
@@ -214,26 +307,26 @@ void process_voltages() {
     avgVolt = totalVolts / (TOTAL_IC * TOTAL_CELLS); // stored as double volts
     bmsVoltageMessage.setAverage(static_cast<uint16_t>(avgVolt * 1000 + 0.5)); // stored in millivolts
     bmsVoltageMessage.setTotal(static_cast<uint16_t>(totalVolts + 0.5)); // number is in units volts
-    minVolt = (minVolt + 5) / 10;
-    maxVolt = (maxVolt + 5) / 10;
+    minVolt = minVolt + 5;
+    maxVolt = maxVolt + 5;
     bmsVoltageMessage.setLow(minVolt);
     bmsVoltageMessage.setHigh(maxVolt);
 
     // TODO: Low and High voltage error checking.
-    if (bmsVoltageMessage.getHigh() > VOLTAGE_HIGH_CUTOFF) {
+    if (bmsVoltageMessage.getHigh() > voltage_cutoff_high) {
         bmsStatusMessage.setOvervoltage(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
         Serial.print("max IC: "); Serial.println(maxIC);
         Serial.print("max Cell: "); Serial.println(maxCell); Serial.println();
     }
 
-    if (bmsVoltageMessage.getLow() < VOLTAGE_LOW_CUTOFF) {
+    if (bmsVoltageMessage.getLow() < voltage_cutoff_low) {
         bmsStatusMessage.setUndervoltage(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
         Serial.print("min IC: "); Serial.println(minIC);
         Serial.print("min Cell: "); Serial.println(minCell); Serial.println();
     }
-    if (bmsVoltageMessage.getTotal() > TOTAL_VOLTAGE_CUTOFF) {
+    if (bmsVoltageMessage.getTotal() > total_voltage_cutoff) {
         bmsStatusMessage.setTotalVoltageHigh(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
     }
@@ -304,12 +397,12 @@ void process_temps() {
     bmsTempMessage.setAvgTemp((uint16_t) avgTemp);
 
     if (bmsCurrentMessage.getChargingState() == 0) { // discharging
-        if (bmsTempMessage.getHighTemp() > DISCHARGE_TEMP_CRITICAL_HIGH) {
+        if (bmsTempMessage.getHighTemp() > discharge_temp_critical_high) {
             bmsStatusMessage.setDischargeOvertemp(true);
             Serial.println("TEMPERATURE FAULT!!!!!!!!!!!!!!!!!!!");
         }
     } else if (bmsCurrentMessage.getChargingState() == 1) { // charging
-        if (bmsTempMessage.getHighTemp() > CHARGE_TEMP_CRITICAL_HIGH) {
+        if (bmsTempMessage.getHighTemp() > charge_temp_critical_high) {
             bmsStatusMessage.setChargeOvertemp(true);
             Serial.println("TEMPERATURE FAULT!!!!!!!!!!!!!!!!!!!");
         }
@@ -384,18 +477,18 @@ float process_current() {
     // max current sensor reading +/- 300A
     // current = 300 * (V - 2.5v) / 2v
     double senseVoltage = analogRead(CURRENT_SENSE) * 5.0 / 1024;
-    float current = (float) MAX_VAL_CURRENT_SENSE * (senseVoltage - 2.5) / 2;
+    float current = (float) max_val_current_sense * (senseVoltage - 2.5) / 2;
     Serial.print("Current: "); Serial.println(current);
     bmsCurrentMessage.setCurrent(current);
     if (current < 0) {
         bmsCurrentMessage.setChargingState(CHARGING);
-        if (bmsCurrentMessage.getCurrent() < CHARGE_CURRENT_CONSTANT_HIGH) {
+        if (bmsCurrentMessage.getCurrent() < charge_current_constant_high) {
             bmsStatusMessage.setChargeOvercurrent(true);
             Serial.println("CHARGE CURRENT HIGH FAULT!!!!!!!!!!!!!!!!!!!");
         }
     } else if (current > 0) {
         bmsCurrentMessage.setChargingState(DISCHARGING);
-        if (bmsCurrentMessage.getCurrent() > DISCHARGE_CURRENT_CONSTANT_HIGH) {
+        if (bmsCurrentMessage.getCurrent() > discharge_current_constant_high) {
             bmsStatusMessage.setDischargeOvercurrent(true);
             Serial.println("DISCHARGE CURRENT HIGH FAULT!!!!!!!!!!!!!!!!!!!");
         }
@@ -418,23 +511,23 @@ void wakeFromIdleAllChips() {
 }
 
 void writeToCAN() {
-    Serial.println("WRITING TO CAN!");
-    digitalWrite(10, HIGH);
-    unsigned char msg[8] = {0,0,0,0,0,0,0,0};
-    bmsVoltageMessage.write(msg);
-    byte CANsendMsgresult = CAN.sendMsgBuf(ID_BMS_VOLTAGE, 0, 8, msg);
-
-    bmsCurrentMessage.setChargingState(0b1);
-    bmsCurrentMessage.setCurrent(77.777);
-    bmsCurrentMessage.write(msg);
-    CANsendMsgresult = CAN.sendMsgBuf(ID_BMS_CURRENT, 0, 8, msg);
-
-    bmsTempMessage.write(msg);
-    CANsendMsgresult = CAN.sendMsgBuf(ID_BMS_TEMPERATURE, 0, 8, msg);
-
-    bmsStatusMessage.write(msg);
-    CANsendMsgresult = CAN.sendMsgBuf(ID_BMS_STATUS, 0, 8, msg);
-    digitalWrite(10, HIGH);
+    // Serial.println("WRITING TO CAN!");
+    // digitalWrite(10, HIGH);
+    // unsigned char msg[8] = {0,0,0,0,0,0,0,0};
+    // bmsVoltageMessage.write(msg);
+    // byte CANsendMsgresult = CAN.sendMsgBuf(ID_BMS_VOLTAGE, 0, 8, msg);
+    // 
+    // bmsCurrentMessage.setChargingState(0b1);
+    // bmsCurrentMessage.setCurrent(77.777);
+    // bmsCurrentMessage.write(msg);
+    // CANsendMsgresult = CAN.sendMsgBuf(ID_BMS_CURRENT, 0, 8, msg);
+    // 
+    // bmsTempMessage.write(msg);
+    // CANsendMsgresult = CAN.sendMsgBuf(ID_BMS_TEMPERATURE, 0, 8, msg);
+    // 
+    // bmsStatusMessage.write(msg);
+    // CANsendMsgresult = CAN.sendMsgBuf(ID_BMS_STATUS, 0, 8, msg);
+    // digitalWrite(10, HIGH);
 }
 
 void printCells() {
@@ -442,7 +535,11 @@ void printCells() {
         Serial.print("IC: ");
         Serial.println(current_ic+1);
         for (int i = 0; i < TOTAL_CELLS; i++) {
-            Serial.print("C"); Serial.print(i+1); Serial.print(": ");
+            Serial.print("C"); Serial.print(i);
+            if (ignore_cell[current_ic][i]) {
+                Serial.print(" IGNORED CELL ");
+            }
+            Serial.print(": ");
             float voltage = cell_voltages[current_ic][i] * 0.0001;
             Serial.println(voltage, 4);
         }
