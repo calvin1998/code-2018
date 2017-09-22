@@ -105,6 +105,8 @@ void setup() {
 
     delay(2000);
 
+    load_config_from_EEPROM();
+
     LTC6804_initialize();
     init_cfg();
     poll_cell_voltage();
@@ -131,9 +133,12 @@ void loop() {
                 BMS_config bms_config = BMS_config(msg.buf);
                 if (updateConstants(bms_config.getAddress(), bms_config.getValue())) {
                     Serial.println("BMS constraint update failed");
-                    // send response message
+                    bms_config.setValue(-1);
+                } else {
+                    write_config_to_EEPROM();
                 }
-                // write to eeprom
+                bms_config.write(msg.buf);
+                CAN.write(msg);
             }
         }    
     }
@@ -165,7 +170,7 @@ void load_config_from_EEPROM() {
     for (int i = 0; i < NUM_CONSTANTS; i++) {
         uint8_t buffer[sizeof(short)];
         for (int j = 0; j < sizeof(short); j++) {
-            buffer[i] = EEPROM.read((2 * i) + j);
+            buffer[j] = EEPROM.read((2 * i) + j);
         }
         short temp;
         memcpy(&temp, &buffer, sizeof(short));
@@ -182,7 +187,7 @@ void write_config_to_EEPROM() {
         short value = getConstantByAddress(i);
         memcpy(&buffer, &value, sizeof(short));
         for (int j = 0; j < sizeof(short); j++) {
-            EEPROM.write((2 * i) + j);
+            EEPROM.write((2 * i) + j, buffer[j]);
         }
     }
 }
