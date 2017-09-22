@@ -7,7 +7,6 @@
 #include <FlexCAN.h>
 #include <HyTech17.h>
 #include <Metro.h>
-#include <XBee.h>
 
 /*
  * Pin definitions
@@ -33,6 +32,8 @@
 #define IMD_HIGH 100
 #define IMD_LOW 50
 
+#define XB Serial2 
+
 /*
  * Timers
  */
@@ -53,30 +54,43 @@ boolean imd_fault = false;
 boolean imd_faulting = false;
 uint8_t state = PCU_STATE_WAITING_BMS_IMD;
 
+/*
+ * Xbee Variables
+ */
+unsigned long xbee_baud = 19200;
+const int XBEE_LED = 13;
+byte xbee_buff[80];
+
 FlexCAN CAN(500000);
 static CAN_message_t msg;
 
 void setup() {
+  pinMode(COOL_RELAY_1, OUTPUT);
   pinMode(COOL_RELAY_2, OUTPUT);
   pinMode(SSR_BRAKE_LIGHT, OUTPUT);
   pinMode(SSR_INVERTER, OUTPUT);
   pinMode(SSR_LATCH_BMS, OUTPUT);
   pinMode(SSR_LATCH_IMD, OUTPUT);
+  pinMode(XBEE_LED, OUTPUT); 
 
   Serial.begin(115200);
   CAN.begin();
+  XB.begin(xbee_baud);
   delay(100);
   Serial.println("CAN transceiver initialized");
   digitalWrite(SSR_INVERTER, HIGH);
-  
-  // Xbee setup
+  digitalWrite(COOL_RELAY_1, HIGH);
+  digitalWrite(COOL_RELAY_2, HIGH);
 }
 
 void loop() {
+
+  int wr; // used for Xbee communication
   /*
    * Handle incoming CAN messages
    */
   while (CAN.read(msg)) {
+    Serial.println("Recieved Can Message");
     if (msg.id == ID_DCU_STATUS) {      
       DCU_status message = DCU_status(msg.buf);
       if (btn_start_id != message.get_btn_press_id()) {
@@ -99,6 +113,31 @@ void loop() {
         set_state(0);
       }
     }
+    wr = XB.availableForWrite();
+    if (wr>1 && ((msg.id == ID_MC_TEMPERATURES_1) || 
+         (msg.id == ID_MC_TEMPERATURES_3) || 
+         (msg.id == ID_MC_MOTOR_POSITION_INFORMATION) ||
+         (msg.id == ID_MC_CURRENT_INFORMATION) ||
+         (msg.id == ID_MC_VOLTAGE_INFORMATION) || 
+         (msg.id == ID_MC_INTERNAL_STATES) ||
+         (msg.id == ID_MC_FAULT_CODES) || 
+         (msg.id == ID_MC_TORQUE_TIMER_INFORMATION))) {
+          Serial.println(msg.id, HEX);
+          Serial.println("-------------------------------------------------------------------------------------------------------------");
+          memcpy(xbee_buff,&msg,sizeof(msg));
+//          for (int i = 0; i < sizeof(buff); i++) Serial.print(buff[i]);
+//          Serial.println();
+          XB.write(xbee_buff, sizeof(msg));
+          digitalWrite(XBEE_LED,HIGH);
+          delay(10);
+          digitalWrite(XBEE_LED,LOW);
+          delay(10);
+          //XB.write(5);
+          //Serial.println(numSent);
+
+          //if (CAN_Data.available > 0) {
+          //  SDCard.println(buff);
+      }
     /*if (msg.id == ID_MC_COMMAND_MESSAGE) {
       MC_command_message mc_command_message = MC_command_message(msg.buf);
       Serial.print("Torque command: ");
@@ -207,6 +246,7 @@ void loop() {
     set_state(PCU_STATE_FATAL_FAULT);
     Serial.println("IMD fault detected");
   }
+
 }
 
 /*
