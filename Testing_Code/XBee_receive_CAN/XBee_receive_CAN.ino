@@ -22,7 +22,8 @@ void setup()
 
 void loop()
 {
-  int rd, wr; // how much we can read, write, and how much 'good' data was copied
+  int rd;
+  int wr; // how much we can read, write, and how much 'good' data was copied
  
   delay(30); // needed so far to not get zeros as data values
   
