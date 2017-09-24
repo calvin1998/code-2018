@@ -106,7 +106,6 @@ void setup() {
     poll_cell_voltage();
     memcpy(cell_delta_voltage, cell_voltages, 2 * TOTAL_IC * TOTAL_CELLS);
     bmsCurrentMessage.setChargingState(CHARGING);
-    Serial.println("Setup Complete!");
     
 }
 
@@ -118,7 +117,7 @@ void setup() {
 void loop() {
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
     process_temps(); // sto datap in bmsTempMessage object.
-
+    Serial.println(cell_voltages[0][0]);
 }
 
 /*!***********************************
@@ -142,7 +141,6 @@ void init_cfg()
 
 
 void poll_cell_voltage() {
-    Serial.println("Polling Voltages...");
     /*
      * Difference between wakeup_sleep and wakeup_idle
      * wakeup_sleep wakes up the LTC6804 from sleep state
@@ -155,9 +153,6 @@ void poll_cell_voltage() {
     delay(10);
     wakeup_idle();
     uint8_t error = LTC6804_rdcv(0, TOTAL_IC, cell_voltages); // asks chip to read voltages and sto in given array.
-    if (error == -1) {
-        Serial.println("A PEC error was detected in cell voltage data");
-    }
     printCells(); // prints the cell voltages to Serial.
     delay(200); // TODO: Why 200 milliseconds?
 }
@@ -191,65 +186,8 @@ void process_voltages() {
             }
         }
     }
-    avgVolt = totalVolts / (TOTAL_IC * TOTAL_CELLS); // stored as double volts
-    bmsVoltageMessage.setAverage(static_cast<uint16_t>(avgVolt * 1000 + 0.5)); // stored in millivolts
-    bmsVoltageMessage.setTotal(static_cast<uint16_t>(totalVolts + 0.5)); // number is in units volts
-    minVolt = minVolt + 5;
-    maxVolt = maxVolt + 5;
-    bmsVoltageMessage.setLow(minVolt);
-    bmsVoltageMessage.setHigh(maxVolt);
-
-    // TODO: Low and High voltage error checking.
-    if (bmsVoltageMessage.getHigh() > voltage_cutoff_high) {
-        bmsStatusMessage.setOvervoltage(true);
-        Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
-        Serial.print("max IC: "); Serial.println(maxIC);
-        Serial.print("max Cell: "); Serial.println(maxCell); Serial.println();
-    }
-
-    if (bmsVoltageMessage.getLow() < voltage_cutoff_low) {
-        bmsStatusMessage.setUndervoltage(true);
-        Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
-        Serial.print("min IC: "); Serial.println(minIC);
-        Serial.print("min Cell: "); Serial.println(minCell); Serial.println();
-    }
-    if (bmsVoltageMessage.getTotal() > total_voltage_cutoff) {
-        bmsStatusMessage.setTotalVoltageHigh(true);
-        Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
-    }
-
-    Serial.print("Avg: "); Serial.println(avgVolt, 4);
-    Serial.print("Total: "); Serial.println(totalVolts, 4);
-    Serial.print("Min: "); Serial.println(minVolt);
-    Serial.print("Max: "); Serial.println(maxVolt);
 }
 
-
-float process_current() {
-    // max positive current at 90% of 5V = 4.5V
-    // max negative current in opposite direction at 10% of 5V = 0.5V
-    // 0 current at 50% of 5V = 2.5V
-    // max current sensor reading +/- 300A
-    // current = 300 * (V - 2.5v) / 2v
-    double senseVoltage = analogRead(CURRENT_SENSE) * 5.0 / 1024;
-    float current = (float) max_val_current_sense * (senseVoltage - 2.5) / 2;
-    Serial.print("Current: "); Serial.println(current);
-    bmsCurrentMessage.setCurrent(current);
-    if (current < 0) {
-        bmsCurrentMessage.setChargingState(CHARGING);
-        if (bmsCurrentMessage.getCurrent() < charge_current_constant_high) {
-            bmsStatusMessage.setChargeOvercurrent(true);
-            Serial.println("CHARGE CURRENT HIGH FAULT!!!!!!!!!!!!!!!!!!!");
-        }
-    } else if (current > 0) {
-        bmsCurrentMessage.setChargingState(DISCHARGING);
-        if (bmsCurrentMessage.getCurrent() > discharge_current_constant_high) {
-            bmsStatusMessage.setDischargeOvercurrent(true);
-            Serial.println("DISCHARGE CURRENT HIGH FAULT!!!!!!!!!!!!!!!!!!!");
-        }
-    }
-    return current;
-}
 
 void wakeFromSleepAllChips() {
     for (int i = 0; i < TOTAL_IC / 3; i++) {
@@ -266,19 +204,3 @@ void wakeFromIdleAllChips() {
 }
 
 
-void printCells() {
-    for (int current_ic = 0; current_ic < TOTAL_IC; current_ic++) {
-        Serial.print("IC: ");
-        Serial.println(current_ic+1);
-        for (int i = 0; i < TOTAL_CELLS; i++) {
-            Serial.print("C"); Serial.print(i);
-            if (ignore_cell[current_ic][i]) {
-                Serial.print(" IGNORED CELL ");
-            }
-            Serial.print(": ");
-            float voltage = cell_voltages[current_ic][i] * 0.0001;
-            Serial.println(voltage, 4);
-        }
-        Serial.println();
-    }
-}
