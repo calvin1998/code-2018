@@ -39,7 +39,7 @@ short charge_temp_critical_high = 4400;// 44.00
 short discharge_temp_critical_high = 6000; // 60.00
 short voltage_difference_threshold = 1000; //100 mV, 0.1V
 
-#define ENABLE_CAN false // use this definition to enable or disable CAN
+#define ENABLE_CAN true // use this definition to enable or disable CAN
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
 #define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
 #define TOTAL_CELLS 9
@@ -139,6 +139,7 @@ void loop() {
                 }
                 bms_config.write(msg.buf);
                 CAN.write(msg);
+                Serial.println("********************** UPDATED CONSTANT**************************");
             }
         }    
     }
@@ -575,6 +576,10 @@ int updateConstants(uint8_t address, short value) {
         default:
             return -1;
     }
+    Serial.print("****************** UPDATED ");
+    Serial.print(address);
+    Serial.print(" TO ");
+    Serial.println(value);
     return 0;
 }
 
