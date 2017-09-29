@@ -1,29 +1,51 @@
-import serial
+import serial # read serial port from Teensy
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from collections import deque
 
-//read serial port from Teensy
+class AnalogPlot:
+    # constr
+    def __init__(self, strPort, maxLen):
+        # open serial port
+        self.ser = serial.Serial(strPort, 9600)
+        print(ser.name())
+        self.ax = deque([0.0]*maxLen)
+        self.ay = deque([0.0]*maxLen)
+        self.maxLen = maxLen
 
-[][] data //store incoming data, voltage/temp/current
+    # add to buffer
+    def addToBuf(self, buf, val):
+        if len(buf) < self.maxLen:
+            buf.append(val)
+        else:
+            buf.pop()
+            buf.appendleft(val)
 
-//figure setup
-create figure
-axis, limits, etc
+    # add data
+    def add(self, data):
+        assert(len(data) == 2)
+        self.addToBuf(self.ax, data[0])
+        self.addToBuf(self.ay, data[1])
 
-while available
-    read serial port
-    parse package and add to data if new received
-        -compare with "key" characters to get correct variable type
+    # update plot
+    def update(self, frameNum, a0, a1):
+        try:
+            line = self.ser.readline()
+            data = [float(val) for val in line.split()]
+            # print data
+            if(len(data) == 2):
+                self.add(data)
+                a0.set_data(range(self.maxLen), self.ax)
+                a1.set_data(range(self.maxLen), self.ay)
+        except KeyboardInterrupt:
+            print('exiting')
+        
+        return a0, 
 
-    if (new data point was added) {
-        update plot
-    } //not necessary
-
-end
-
-
-function plot([] newDataThatWasAddedSinceLastPlot)
-//array... of new data added since last plot
-update plot
-if
-
-
+    # clean up
+    def close(self):
+        # close serial
+        self.ser.flush()
+        self.ser.close()
 
