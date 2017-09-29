@@ -9,7 +9,7 @@ class AnalogPlot:
     def __init__(self, strPort, maxLen):
         # open serial port
         self.ser = serial.Serial(strPort, 9600)
-        print(ser.name())
+        # print(self.ser.name())
         self.ax = deque([0.0]*maxLen)
         self.ay = deque([0.0]*maxLen)
         self.maxLen = maxLen
@@ -48,4 +48,28 @@ class AnalogPlot:
         # close serial
         self.ser.flush()
         self.ser.close()
+
+def main():
+    strPort = '/dev/ttyACM0'
+    # ser = serial.Serial(strPort, 9600)
+    
+    print('reading from serial port %s...' % strPort)
+
+    # plot parameters
+    analogPlot = AnalogPlot(strPort, 100)
+
+    fig = plt.figure()
+    ax = plt.axes(xlim=(0, 100), ylim=(0, 1023))
+    a0, = ax.plot([], [])
+    a1, = ax.plot([], [])
+    anim = animation.FuncAnimation(fig, analogPlot.update, fargs=(a0, a1), interval=50)
+
+    plt.show() # Show the graph
+    analogPlot.close() # clean up
+    print('exiting.')
+
+
+if __name__ == '__main__':
+    main()
+
 
