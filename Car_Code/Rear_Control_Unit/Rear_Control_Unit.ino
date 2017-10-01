@@ -89,7 +89,7 @@ void loop() {
   /*
    * Handle incoming CAN messages
    */
-  while (CAN.read(msg)) {
+  /*while (CAN.read(msg)) {
     Serial.println("Recieved Can Message");
     if (msg.id == ID_DCU_STATUS) {      
       DCU_status message = DCU_status(msg.buf);
@@ -113,21 +113,23 @@ void loop() {
         set_state(0);
       }
     }
+    */
     wr = XB.availableForWrite();
-    if (wr>1 && ((msg.id == ID_MC_TEMPERATURES_1) || 
+    char buffer[10] = {'a', 'b', 'a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'};
+    if (wr>1 /*&& ((msg.id == ID_MC_TEMPERATURES_1) || 
          (msg.id == ID_MC_TEMPERATURES_3) || 
          (msg.id == ID_MC_MOTOR_POSITION_INFORMATION) ||
          (msg.id == ID_MC_CURRENT_INFORMATION) ||
          (msg.id == ID_MC_VOLTAGE_INFORMATION) || 
          (msg.id == ID_MC_INTERNAL_STATES) ||
          (msg.id == ID_MC_FAULT_CODES) || 
-         (msg.id == ID_MC_TORQUE_TIMER_INFORMATION))) {
-          Serial.println(msg.id, HEX);
-          Serial.println("-------------------------------------------------------------------------------------------------------------");
-          memcpy(xbee_buff,&msg,sizeof(msg));
+         (msg.id == ID_MC_TORQUE_TIMER_INFORMATION))*/) {
+          // Serial.println(msg.id, HEX);
+          // Serial.println("-------------------------------------------------------------------------------------------------------------");
+          // memcpy(xbee_buff,&buffer,sizeof(buffer));
 //          for (int i = 0; i < sizeof(buff); i++) Serial.print(buff[i]);
 //          Serial.println();
-          XB.write(xbee_buff, sizeof(msg));
+          XB.write(buffer, sizeof(buffer));
           digitalWrite(XBEE_LED,HIGH);
           delay(10);
           digitalWrite(XBEE_LED,LOW);
@@ -152,12 +154,14 @@ void loop() {
       Serial.println(mc_command_message.get_discharge_enable());
       Serial.print("Commanded torque limit: ");
       Serial.println(mc_command_message.get_commanded_torque_limit());
-    }*/
+    }
   }
+  */
 
   /*
    * Send state over CAN
    */
+  /*
   if (timer_state_send.check()) {
     PCU_status pcu_status(state, bms_fault, imd_fault, 0, 0); // Nothing external relies on OKHS or discharge_ok voltage so sending 0s for now
     pcu_status.write(msg.buf);
@@ -198,55 +202,67 @@ void loop() {
     case PCU_STATE_FATAL_FAULT:
     break;
   }
+  */
 
   /*
    * Start BMS fault timer if signal drops momentarily
    */
+  /*
   if (state != PCU_STATE_WAITING_BMS_IMD && analogRead(SENSE_BMS) <= BMS_LOW) { // TODO imd/bms
     bms_faulting = true;
     timer_bms_faulting.reset();
   }
+  */
 
   /*
    * Reset BMS fault condition if signal comes back within timer period
    */
+  /*
   if (bms_faulting && analogRead(SENSE_BMS) > BMS_HIGH) {
     bms_faulting = false;
   }
+  */
 
   /*
    * Declare BMS fault if signal still dropped
    */
+  /*
   if (bms_faulting && timer_bms_faulting.check()) {
     bms_fault = true;
     set_state(PCU_STATE_FATAL_FAULT);
     Serial.println("BMS fault detected");
   }
+  */
 
   /*
    * Start IMD fault timer if signal drops momentarily
    */
+  /*
   if (state != PCU_STATE_WAITING_BMS_IMD && analogRead(SENSE_IMD) <= IMD_LOW) {
     imd_faulting = true;
     timer_imd_faulting.reset();
   }
+  */
 
   /*
    * Reset IMD fault condition if signal comes back within timer period
    */
+  /*
   if (imd_faulting && analogRead(SENSE_IMD) > IMD_HIGH) {
     imd_faulting = false;
   }
+  */
 
   /*
    * Declare IMD fault if signal still dropped
    */
+  /*
   if (imd_faulting && timer_imd_faulting.check()) {
     imd_fault = true;
     set_state(PCU_STATE_FATAL_FAULT);
     Serial.println("IMD fault detected");
   }
-
+  */
 }
 
 /*
