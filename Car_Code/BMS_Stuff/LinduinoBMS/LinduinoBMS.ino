@@ -4,7 +4,7 @@
  */
 
 #include <Arduino.h>
-#include "mcp_can.h"
+#include <FlexCAN.h>
 #include "LTC68041.h"
 #include "HyTech17.h"
 
@@ -34,12 +34,12 @@ short charge_current_constant_high = -400;
 short max_val_current_sense = 300;
 short charge_temp_critical_high = 4400;// 44.00
 short discharge_temp_critical_high = 6000; // 60.00
-short voltage_difference_threshold = 1000; //100 mV, 0.1V
+short voltage_difference_threshold = 500; //100 mV, 0.1V
 
 #define ENABLE_CAN false // use this definition to enable or disable CAN
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
-#define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
-#define TOTAL_CELLS 9
+#define TOTAL_IC 2 // DEBUG: We have temporarily overwritten this value
+#define TOTAL_CELLS 12
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
 #define THERMISTOR_RESISTOR_VALUE 6700 // TODO: Double check what resistor is used on the resistor divider.
 uint16_t cell_voltages[TOTAL_IC][12]; // contains 12 battery cell voltages. Numbers are stored in 0.1 mV units.
@@ -49,8 +49,8 @@ uint16_t aux_voltages[TOTAL_IC][6]; // contains auxiliary pin voltages.
       * Thermistor 2
       * Thermistor 3
       */
-int16_t cell_delta_voltage[TOTAL_IC][9]; // keep track of which cells are being discharged
-int16_t ignore_cell[TOTAL_IC][9]; //cells to be ignored for Balance testing
+int16_t cell_delta_voltage[TOTAL_IC][TOTAL_CELLS]; // keep track of which cells are being discharged
+int16_t ignore_cell[TOTAL_IC][TOTAL_CELLS]; //cells to be ignored for Balance testing
 
 /*!<
   The tx_cfg[][6] sto the LTC6804 configuration data that is going to be written
@@ -67,9 +67,8 @@ uint8_t tx_cfg[TOTAL_IC][6]; // data defining how data will be written to daisy 
 /**
  * CAN Variables
  */
-#define CAN_SPI_CS_PIN 10
-MCP_CAN CAN(CAN_SPI_CS_PIN);
-long msTimer = 0;
+FlexCAN CAN(500000);
+static CAN_message_t msg;
 
 /**
  * BMS State Variables
@@ -93,22 +92,15 @@ void setup() {
     // put your setup code here, to run once:
     pinMode(BMS_OK_PIN, OUTPUT);
     pinMode(WATCH_DOG_TIMER, OUTPUT);
-    pinMode(CAN_SPI_CS_PIN, OUTPUT);// Not needed, done in mcp_can.cpp
-
-    digitalWrite(CAN_SPI_CS_PIN, HIGH);
+    pinMode(10,OUTPUT);//chip select pin
     digitalWrite(BMS_OK_PIN, HIGH);
 
     Serial.begin(115200);
-    delay(2000);
-
-    // Check CAN Initialization
     if (ENABLE_CAN) {
-        while (CAN_OK == CAN.begin(CAN_500KBPS)) {
-            Serial.println("Init CAN BUS Shield FAILED. Retrying");
-            delay(100);
-        }        
-        Serial.println("CAN BUS Shield init GOOD");
+        CAN.begin();
     }
+
+    delay(2000);
 
     LTC6804_initialize();
     init_cfg();
@@ -118,10 +110,10 @@ void setup() {
     Serial.println("Setup Complete!");
     
     // DEBUG Code for testing cell packs
-    ignore_cell[0][3] = true;
+    /*ignore_cell[0][3] = true;
     ignore_cell[0][4] = true;
     ignore_cell[0][5] = true;
-    ignore_cell[0][6] = true;
+    ignore_cell[0][6] = true;*/
 }
 
 // NOTE: Implement Coulomb counting to track state of charge of battery.
@@ -132,14 +124,14 @@ void setup() {
 void loop() {
     if (ENABLE_CAN) {
         while (CAN.read(msg)) {
-            if (msg.id == NULL) {
+            if (msg.id == NULL) { // TODO replace with approate definition
                 // lines set out for changing BMS variables TODO
                 Serial.println("Reading BMS");
             }
         }    
     }
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
-    bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
+    //bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
     balance_cells();
     process_temps(); // sto datap in bmsTempMessage object.
     /*process_current(); // sto data in bmsCurrentMessage object.
@@ -179,18 +171,27 @@ void init_cfg()
 }
 
 void discharge_cell(int ic, int cell) {
+    cell_discharging[ic][cell] = true;
     discharge_cell(ic, cell, true);
 }
 
 void discharge_cell(int ic, int cell, bool setDischarge) {
     if (ic < TOTAL_IC && cell < TOTAL_CELLS) {
         if (cell < 8) {
-            tx_cfg[ic][4] = tx_cfg[ic][4] | (0b1 << cell); 
+            if(setDischarge){
+                tx_cfg[ic][4] = tx_cfg[ic][4] | (0b1 << cell); 
+            }else{
+                tx_cfg[ic][4] = tx_cfg[ic][4] & ~(0b1 << cell ); 
+            }
         } else {
-            tx_cfg[ic][5] = tx_cfg[ic][5] | (0b1 << (cell - 8)); 
+            if(setDischarge){
+                tx_cfg[ic][5] = tx_cfg[ic][5] | (0b1 << (cell - 8)); 
+            }else{
+                tx_cfg[ic][5] = tx_cfg[ic][5] & ~(0b1 << (cell - 8)); 
+            }
         }
-        // TODO: Handle logic for unsetting discharge
     }
+    LTC6804_wrcfg(TOTAL_IC, tx_cfg);
     wakeFromSleepAllChips();
 }
 
@@ -199,59 +200,56 @@ void dischargeAll() {
         tx_cfg[i][4] = 0b11111111;
         tx_cfg[i][5] = tx_cfg[i][5] | 0b00001111;
     }
+    LTC6804_wrcfg(TOTAL_IC, tx_cfg);
     wakeFromSleepAllChips();
 }
 
-void balance_cells () {
-  voltage_difference = bmsVoltageMessage.getHigh() - bmsVoltageMessage.getLow();//diff between highest and lowest cell
-  Serial.println("Voltage Difference: ");
-  Serial.println(voltage_difference);
-  
-  if(voltage_difference>voltage_difference_threshold && bmsVoltageMessage.getLow() > voltage_cutoff_low) {// if highest cell surppasses balancing threshold 
-    Serial.println("Balancing!");
-    for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
-        for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
-            if(!ignore_cell[ic][cell]){
-                uint16_t cell_voltage = cell_voltages[ic][cell];// current cell voltage in mV
-                if (cell_voltage > bmsVoltageMessage.getLow()+voltage_difference_threshold){//cell over bmsVoltage + threshold to which we balance
-                    cell_discharging[ic][cell] = true;
-                    //activate discharge resistor across that cell
-                    //set cell to discharging
-                    discharge_cell(ic,cell);
-                    Serial.print("Discharging \t Cell: Pack: ");
-                    Serial.print(ic);
-                    Serial.print(" cell: ");
-                    Serial.print(cell);
-                    Serial.print(" voltage (V) ");
-                    Serial.println(cell_voltage);
-                } else {
-                    cell_discharging[ic][cell] = false;
-                    Serial.print("Not Discharging \t  Cell: Pack: ");
-                    Serial.print(ic);
-                    Serial.print(" cell: ");
-                    Serial.println(cell);
-                    Serial.print(" voltage (V) ");
-                    Serial.println(cell_voltage);
-                    //disable discharging
-                }
-            }
-        }
+void stop_discharge_cell(int ic, int cell)
+{
+    cell_discharging[ic][cell] = false;
+    discharge_cell(ic, cell, false);
+}
+
+void stop_dischargeAll() {
+    for (int i = 0; i < TOTAL_IC; i++) {
+        tx_cfg[i][4] = 0b0;
+        tx_cfg[i][5] = 0b0;
     }
-  }else{
+    LTC6804_wrcfg(TOTAL_IC, tx_cfg);
+    wakeFromSleepAllChips();
+}
+
+
+void balance_cells () {
+  if (bmsVoltageMessage.getLow() > voltage_cutoff_low)
+  { 
+      for (int ic = 0; ic < TOTAL_IC; ic++)
+      { // for IC
+          for (int cell = 0; cell < TOTAL_CELLS; cell++)
+          { // for Cell
+              if (!ignore_cell[ic][cell])
+              {
+                  uint16_t cell_voltage = cell_voltages[ic][cell]; // current cell voltage in mV
+                  if (cell_discharging[ic][cell])
+                  {
+                      if (cell_voltage < bmsVoltageMessage.getLow() + voltage_difference_threshold - 6)
+                      {
+                          stop_discharge_cell(ic, cell);
+                      }
+                  }
+                  else if (cell_voltage > bmsVoltageMessage.getLow() + voltage_difference_threshold)
+                      {
+                          discharge_cell(ic, cell);
+                  }
+              }
+          }
+      }
+  }
+  else
+  {
       Serial.println("Not Balancing!");
-       for (int ic = 0; ic < TOTAL_IC; ic++) { // for IC
-        for (int cell = 0; cell < TOTAL_CELLS; cell++) {// for Cell
-            if(!ignore_cell[ic][cell]){
-                if (cell_discharging[ic][cell]){
-                    cell_discharging[ic][cell] = false;
-                    Serial.print("Stopping Discharging of Cell:");
-                    Serial.print(ic);
-                    Serial.print(" ");
-                    Serial.println(cell);
-                }
-            }
-        }
-    }   //make sure all cells not discharging
+      stop_dischargeAll();
+      //make sure none of the cells are discharging
   }
 }
 void poll_cell_voltage() {
@@ -307,8 +305,6 @@ void process_voltages() {
     avgVolt = totalVolts / (TOTAL_IC * TOTAL_CELLS); // stored as double volts
     bmsVoltageMessage.setAverage(static_cast<uint16_t>(avgVolt * 1000 + 0.5)); // stored in millivolts
     bmsVoltageMessage.setTotal(static_cast<uint16_t>(totalVolts + 0.5)); // number is in units volts
-    minVolt = minVolt + 5;
-    maxVolt = maxVolt + 5;
     bmsVoltageMessage.setLow(minVolt);
     bmsVoltageMessage.setHigh(maxVolt);
 
@@ -510,6 +506,41 @@ void wakeFromIdleAllChips() {
     }
 }
 
+int updateConstraints(uint8_t address, short value) {
+    switch(address) {
+        case 0: // voltage_cutoff_low
+            voltage_cutoff_low = value;
+            break;
+        case 1: // voltage_cutoff_high
+            voltage_cutoff_high = value;
+            break;
+        case 2: // total_voltage_cutoff
+            total_voltage_cutoff = value;
+            break;
+        case 3: // discharge_current_constant_high
+            discharge_current_constant_high = value;
+            break;
+        case 4: // charge_current_constant_high
+            charge_current_constant_high = value;
+            break;
+        case 5: // max_val_current_sense
+            max_val_current_sense = value;
+            break;
+        case 6: // charge_temp_critical_high
+            charge_temp_critical_high = value;
+            break;
+        case 7: // discharge_temp_critical_high
+            discharge_temp_critical_high = value;
+            break;
+        case 8: // voltage_difference_threshold
+            voltage_difference_threshold = value;
+            break;
+        default:
+            return -1;
+    }
+    return 0;
+}
+
 void writeToCAN() {
     // Serial.println("WRITING TO CAN!");
     // digitalWrite(10, HIGH);
@@ -541,7 +572,13 @@ void printCells() {
             }
             Serial.print(": ");
             float voltage = cell_voltages[current_ic][i] * 0.0001;
-            Serial.println(voltage, 4);
+            Serial.print(voltage, 4);
+            Serial.print(" Discharging: ");
+            Serial.print(cell_discharging[current_ic][i]); 
+            Serial.print(" Voltage difference: ");
+            Serial.print(cell_voltages[current_ic][i]-bmsVoltageMessage.getLow());
+            Serial.print(" Delta To Threshold: ");
+            Serial.println((cell_voltages[current_ic][i]-bmsVoltageMessage.getLow())-voltage_difference_threshold);
         }
         Serial.println();
     }

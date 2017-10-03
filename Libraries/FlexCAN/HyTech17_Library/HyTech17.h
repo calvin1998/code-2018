@@ -43,7 +43,6 @@
 #define ID_TCU_STATUS 0xD2
 #define ID_TCU_READINGS 0xD3
 #define ID_TCU_RESTART 0xD4
-#define ID_BMS_CONFIG 0xD7
 #define ID_BMS_VOLTAGE 0xD8
 #define ID_BMS_CURRENT 0xD9
 #define ID_BMS_TEMPERATURE 0xDA
@@ -280,26 +279,6 @@ class BMS_currents {
     void setChargingState(uint8_t state);
   private:
     CAN_message_bms_current_t bmsCurrentMessage;
-};
-
-typedef struct CAN_message_bms_config_t {
-    uint8_t address;
-    short value;
-} CAN_message_bms_config_t;
-
-class BMS_config {
-    public:
-        BMS_config();
-        BMS_config(uint8_t buf[]);
-        BMS_config(uint8_t addr, short val);
-        void load(uint8_t buf[]);
-        void write(uint8_t buf[]);
-        uint8_t getAddress();
-        short getValue();
-        void setAddress(uint8_t addr);
-        void setValue(short val);
-    private:
-        CAN_message_bms_config_t bmsConfigMessage;
 };
 
 typedef struct CAN_message_bms_temperature_t {
