@@ -38,7 +38,7 @@ short voltage_difference_threshold = 500; //100 mV, 0.1V
 
 #define ENABLE_CAN false // use this definition to enable or disable CAN
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
-#define TOTAL_IC 2 // DEBUG: We have temporarily overwritten this value
+#define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
 #define TOTAL_CELLS 12
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
 #define THERMISTOR_RESISTOR_VALUE 6700 // TODO: Double check what resistor is used on the resistor divider.
@@ -95,7 +95,7 @@ void setup() {
     pinMode(10,OUTPUT);//chip select pin
     digitalWrite(BMS_OK_PIN, HIGH);
 
-    Serial.begin(115200);
+    Serial.begin(9600);
     if (ENABLE_CAN) {
         CAN.begin();
     }
@@ -122,7 +122,7 @@ void setup() {
  */
 
 void loop() {
-
+    delay(80);
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
     //bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
     balance_cells();
