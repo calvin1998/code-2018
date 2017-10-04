@@ -8,6 +8,8 @@
 #include <HyTech17.h>
 #include <Metro.h>
 
+void packageAssembler(CAN_message_t*, char&);
+
 /*
  * Pin definitions
  */
@@ -32,7 +34,7 @@
 #define IMD_HIGH 100
 #define IMD_LOW 50
 
-#define XB Serial2 
+#define XB Serial2
 
 /*
  * Timers
@@ -71,7 +73,7 @@ void setup() {
   pinMode(SSR_INVERTER, OUTPUT);
   pinMode(SSR_LATCH_BMS, OUTPUT);
   pinMode(SSR_LATCH_IMD, OUTPUT);
-  pinMode(XBEE_LED, OUTPUT); 
+  pinMode(XBEE_LED, OUTPUT);
 
   Serial.begin(115200);
   CAN.begin();
@@ -91,7 +93,7 @@ void loop() {
    */
   /*while (CAN.read(msg)) {
     Serial.println("Recieved Can Message");
-    if (msg.id == ID_DCU_STATUS) {      
+    if (msg.id == ID_DCU_STATUS) {
       DCU_status message = DCU_status(msg.buf);
       if (btn_start_id != message.get_btn_press_id()) {
         btn_start_id = message.get_btn_press_id();
@@ -115,21 +117,26 @@ void loop() {
     }
     */
     wr = XB.availableForWrite();
-    char buffer[10] = {'a', 'b', 'a', 'b', 'a', 'b', 'a', 'b', 'a', 'b'};
-    if (wr>1 /*&& ((msg.id == ID_MC_TEMPERATURES_1) || 
-         (msg.id == ID_MC_TEMPERATURES_3) || 
+    char buffer[10] = {'a', 'b', 'a', 'b', 'a', 'b', 'a', 'b', 'a', '\n'};
+    if (wr>1 /*&& ((msg.id == ID_MC_TEMPERATURES_1) ||
+         (msg.id == ID_MC_TEMPERATURES_3) ||
          (msg.id == ID_MC_MOTOR_POSITION_INFORMATION) ||
          (msg.id == ID_MC_CURRENT_INFORMATION) ||
-         (msg.id == ID_MC_VOLTAGE_INFORMATION) || 
+         (msg.id == ID_MC_VOLTAGE_INFORMATION) ||
          (msg.id == ID_MC_INTERNAL_STATES) ||
-         (msg.id == ID_MC_FAULT_CODES) || 
+         (msg.id == ID_MC_FAULT_CODES) ||
          (msg.id == ID_MC_TORQUE_TIMER_INFORMATION))*/) {
           // Serial.println(msg.id, HEX);
           // Serial.println("-------------------------------------------------------------------------------------------------------------");
           // memcpy(xbee_buff,&buffer,sizeof(buffer));
 //          for (int i = 0; i < sizeof(buff); i++) Serial.print(buff[i]);
 //          Serial.println();
-          XB.write(buffer, sizeof(buffer));
+          //XB.write(buffer, sizeof(buffer));
+
+          char packet[13] = {};
+          packageAssembler(msg, packet);
+          XB.write(packet, sizeof(packet));
+
           digitalWrite(XBEE_LED,HIGH);
           delay(10);
           digitalWrite(XBEE_LED,LOW);
@@ -177,7 +184,7 @@ void loop() {
       set_state(PCU_STATE_WAITING_BMS_IMD);
     }
     break;
-        
+
     case PCU_STATE_WAITING_BMS_IMD:
     if (analogRead(SENSE_IMD) > IMD_HIGH && analogRead(SENSE_BMS) > BMS_HIGH) { // Wait till IMD and BMS signals go high at startup
       set_state(PCU_STATE_WAITING_DRIVER);
@@ -289,3 +296,15 @@ void set_state(uint8_t new_state) {
   }
 }
 
+void packageAssembler(CAN_message_t msg, char* packet) {
+  int packetIndex = 0;
+
+  for (int i = 0; i < 4; i++) {
+    packet[packetIndex] = msg.id[i]
+  }
+  memcpy(packet[0], msg.id, sizeof(msg.id));
+  memcpy(packet[4], msg.buf, sizeof(msg.buf));
+  *packet[packet.length - 1] = '\n';
+
+  return packet;
+}
