@@ -9,6 +9,7 @@ pybind11_setup(cfg)
 #include "HyTech17.h"
 #include "BMS_status.cpp"
 #include "BMS_currents.cpp"
+#include "BMS_temperatures.cpp"
 
 #include <pybind11/pybind11.h>
 // #include <pybind11/stl.h>
@@ -55,6 +56,19 @@ PYBIND11_MODULE(PyTech, m)
         .def("setChargingState", &BMS_currents::setChargingState);
     
     // BMS_temperatures
+    py::class_<BMS_temperatures>(m, "BMS_temperatures")
+        .def(py::init<>())
+        // .def(py::init<unint8_t[]>())
+        // .def(py::init<uint16_t, uint16_t, uint16_t>())
+        // .def("load", &BMS_status::load)
+        // .def("write", &BMS_status::write)
+        .def("getAvgTemp", &BMS_temperatures::getAvgTemp)
+        .def("getLowTemp", &BMS_temperatures::getLowTemp)
+        .def("getHighTemp", &BMS_temperatures::getHighTemp)
+        .def("setAvgTemp", &BMS_temperatures::setAvgTemp)
+        .def("setLowTemp", &BMS_temperatures::setLowTemp)
+        .def("setHighTemp", &BMS_temperatures::setHighTemp);
+    
     // BMS_voltages
     
     // TODO: MC messages
