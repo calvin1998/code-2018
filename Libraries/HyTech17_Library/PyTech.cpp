@@ -10,6 +10,7 @@ pybind11_setup(cfg)
 #include "BMS_status.cpp"
 #include "BMS_currents.cpp"
 #include "BMS_temperatures.cpp"
+#include "BMS_voltages.cpp"
 
 #include <pybind11/pybind11.h>
 // #include <pybind11/stl.h>
@@ -60,8 +61,8 @@ PYBIND11_MODULE(PyTech, m)
         .def(py::init<>())
         // .def(py::init<unint8_t[]>())
         // .def(py::init<uint16_t, uint16_t, uint16_t>())
-        // .def("load", &BMS_status::load)
-        // .def("write", &BMS_status::write)
+        // .def("load", &BMS_temperatures::load)
+        // .def("write", &BMS_temperatures::write)
         .def("getAvgTemp", &BMS_temperatures::getAvgTemp)
         .def("getLowTemp", &BMS_temperatures::getLowTemp)
         .def("getHighTemp", &BMS_temperatures::getHighTemp)
@@ -70,6 +71,20 @@ PYBIND11_MODULE(PyTech, m)
         .def("setHighTemp", &BMS_temperatures::setHighTemp);
     
     // BMS_voltages
+    py::class_<BMS_voltages>(m, "BMS_voltages")
+        .def(py::init<>())
+        // .def(py::init<unint8_t[]>())
+        // .def(py::init<uint16_t, uint16_t, uint16_t, uint16_t>())
+        // .def("load", &BMS_temperatures::load)
+        // .def("write", &BMS_temperatures::write)
+        .def("getAverage", &BMS_voltages::getAverage)
+        .def("getLow", &BMS_voltages::getLow)
+        .def("getHigh", &BMS_voltages::getHigh)
+        .def("getTotal", &BMS_voltages::getTotal)
+        .def("setAverage", &BMS_voltages::setAverage)
+        .def("setLow", &BMS_voltages::setLow)
+        .def("setHigh", &BMS_voltages::setHigh)
+        .def("setTotal", &BMS_voltages::setTotal);
     
     // TODO: MC messages
     // TODO: PCU messages
