@@ -18,25 +18,26 @@ PYBIND11_MODULE(PyBMS, m)
 {
     // BMS Status
     py::class_<BMS_status>(m, "BMS_status")
-        .def(py::init<>());
-    // status.def(py::init<uint8_t[]>());
+        .def(py::init<>())
+        // .def(py::init<std::uint8_t[]>());
     // status.def("load", &BMS_status::load);
     // status.def("write", &BMS_status::write);
-    // status.def("getOvervoltage", &BMS_status::getOvervoltage);
-    // status.def("getUndervoltage", &BMS_status::getUndervoltage);
-    // status.def("getTotalVoltageHigh", &BMS_status::getTotalVoltageHigh);
-    // status.def("getDischargeOvercurrent", &BMS_status::getDischargeOvercurrent);
-    // status.def("getChargeOvercurrent", &BMS_status::getChargeOvercurrent);
-    // status.def("getDischargeOvertemp", &BMS_status::getDischargeOvertemp);
-    // status.def("getChargeOvertemp", &BMS_status::getChargeOvertemp);
-    // status.def("getBMSStatusOK", &BMS_status::getBMSStatusOK);
-    // status.def("setOvervoltage", &BMS_status::setOvervoltage);
-    // status.def("setUnderVoltage", &BMS_status::setUnderVoltage);
-    // status.def("setTotalVoltageHigh", &BMS_status::setTotalVoltageHigh);
-    // status.def("setDischargeOvercurrent", &BMS_status::setDischargeOvercurrent);
-    // status.def("setChargeOvercurrent", &BMS_status::setChargeOvercurrent);
-    // status.def("setDischargeOvertemp", &BMS_status::setDischargeOvertemp);
-    // status.def("setChargeOvertemp", &BMS_status::setChargeOvertemp);
+        .def("getOvervoltage", &BMS_status::getOvervoltage)
+        .def("getUndervoltage", &BMS_status::getUndervoltage)
+        .def("getTotalVoltageHigh", &BMS_status::getTotalVoltageHigh)
+        .def("getDischargeOvercurrent", &BMS_status::getDischargeOvercurrent)
+        .def("getChargeOvercurrent", &BMS_status::getChargeOvercurrent)
+        .def("getDischargeOvertemp", &BMS_status::getDischargeOvertemp)
+        .def("getChargeOvertemp", &BMS_status::getChargeOvertemp)
+        .def("getBMSStatusOK", &BMS_status::getBMSStatusOK)
+        .def("setOvervoltage", &BMS_status::setOvervoltage)
+        .def("setUndervoltage", &BMS_status::setUndervoltage)
+        .def("setTotalVoltageHigh", &BMS_status::setTotalVoltageHigh)
+        .def("setDischargeOvercurrent", &BMS_status::setDischargeOvercurrent)
+        .def("setChargeOvercurrent", &BMS_status::setChargeOvercurrent)
+        .def("setDischargeOvertemp", &BMS_status::setDischargeOvertemp)
+        .def("setChargeOvertemp", &BMS_status::setChargeOvertemp)
+        .def("setBMSStatusOK", &BMS_status::setBMSStatusOK);
 
     // // BMS Current
     // py::class_<BMS_currents> currents(m, "BMS_currents");
