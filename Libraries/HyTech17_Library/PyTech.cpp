@@ -11,17 +11,18 @@ pybind11_setup(cfg)
 // #include <BMS_currents.cpp>
 
 #include <pybind11/pybind11.h>
+// #include <pybind11/stl.h>
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(PyBMS, m)
+PYBIND11_MODULE(PyTech, m)
 {
-    // BMS Status
+    // BMS_status
     py::class_<BMS_status>(m, "BMS_status")
         .def(py::init<>())
-        // .def(py::init<std::uint8_t[]>());
-    // status.def("load", &BMS_status::load);
-    // status.def("write", &BMS_status::write);
+        // .def(py::init<std::uint8_t[]>())
+        .def("load", &BMS_status::load)
+        .def("write", &BMS_status::write)
         .def("getOvervoltage", &BMS_status::getOvervoltage)
         .def("getUndervoltage", &BMS_status::getUndervoltage)
         .def("getTotalVoltageHigh", &BMS_status::getTotalVoltageHigh)
