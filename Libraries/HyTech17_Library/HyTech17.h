@@ -284,6 +284,7 @@ class BMS_currents {
 
 typedef struct CAN_message_bms_config_t {
     uint8_t address;
+    uint8_t writeFlag;
     short value;
 } CAN_message_bms_config_t;
 
@@ -291,12 +292,14 @@ class BMS_config {
     public:
         BMS_config();
         BMS_config(uint8_t buf[]);
-        BMS_config(uint8_t addr, short val);
+        BMS_config(uint8_t addr, uint8_t wflag, short val);
         void load(uint8_t buf[]);
         void write(uint8_t buf[]);
         uint8_t getAddress();
         short getValue();
+        uint8_t isWrite();
         void setAddress(uint8_t addr);
+        void setWriteFlag(uint8_t wflag);
         void setValue(short val);
     private:
         CAN_message_bms_config_t bmsConfigMessage;

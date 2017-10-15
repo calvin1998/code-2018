@@ -71,13 +71,13 @@ uint8_t tx_cfg[TOTAL_IC][6]; // data defining how data will be written to daisy 
  * CAN Variables
  */
 FlexCAN CAN(500000);
-static CAN_message_t msg;
+CAN_message_t msg;
 
 /**
  * BMS State Variables
  */
-#define BMS_OK_PIN 3
-#define WATCH_DOG_TIMER 4
+#define BMS_OK_PIN A8
+#define WATCH_DOG_TIMER A0
 #define CURRENT_SENSE 2
 bool watchDogFlag = true;
 BMS_voltages bmsVoltageMessage;
@@ -99,9 +99,7 @@ void setup() {
     digitalWrite(BMS_OK_PIN, HIGH);
 
     Serial.begin(115200);
-    if (ENABLE_CAN) {
-        CAN.begin();
-    }
+    CAN.begin();
 
     delay(2000);
 
@@ -127,26 +125,32 @@ void setup() {
  */
 
 void loop() {
-    if (ENABLE_CAN) {
-        while (CAN.read(msg)) {
-            if (msg.id == ID_BMS_CONFIG) {
-                BMS_config bms_config = BMS_config(msg.buf);
-                if (updateConstants(bms_config.getAddress(), bms_config.getValue())) {
-                    Serial.println("BMS constraint update failed");
-                    bms_config.setValue(-1);
-                } else {
-                    write_config_to_EEPROM();
-                }
-                bms_config.write(msg.buf);
-                CAN.write(msg);
-                Serial.println("********************** UPDATED CONSTANT**************************");
+    while (CAN.read(msg)) {
+        if (msg.id == ID_BMS_CONFIG) {
+            Serial.println("***************************YOOOOOOOOOOOOOOOOO************************");
+            BMS_config bms_config = BMS_config(msg.buf);
+            if (bms_config.isWrite()) {
+              if (updateConstants(bms_config.getAddress(), bms_config.getValue())) {
+                  Serial.println("BMS constraint update failed");
+                  bms_config.setValue(-1);
+              } else {
+                  write_config_to_EEPROM();
+              }
+            } else {
+              bms_config.setValue(getConstantByAddress(bms_config.getAddress()));
+              Serial.print("************ ADDRESS ");
+              Serial.print(bms_config.getAddress());
+              Serial.print(": ");
+              Serial.println(getConstantByAddress(bms_config.getAddress()));
             }
-        }    
+            bms_config.write(msg.buf);
+            CAN.write(msg);
+        }
     }
     process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
     bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
     balance_cells();
-    process_temps(); // sto datap in bmsTempMessage object.
+    //process_temps(); // sto datap in bmsTempMessage object.
     /*process_current(); // sto data in bmsCurrentMessage object.
 
     // write to CAN!

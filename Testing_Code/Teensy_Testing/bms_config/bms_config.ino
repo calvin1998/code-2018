@@ -12,7 +12,7 @@ void setup() {
   CAN.begin();
   delay(200);
   Serial.println("CAN transceiver initialized");
-  Serial.println("Enter <address>,<value>");
+  Serial.println("Enter <address>,<read=0|write=1>,<value>");
 }
 
 uint32_t t = 1;
@@ -21,10 +21,17 @@ void loop() {
   while (CAN.read(msg)) {
     if (msg.id == ID_BMS_CONFIG) {
       BMS_config bms_config = BMS_config(msg.buf);
-      Serial.print("Updated address ");
-      Serial.print(bms_config.getAddress());
-      Serial.print(" to value ");
-      Serial.println(bms_config.getValue());
+      if (bms_config.isWrite()) {
+        Serial.print("Updated address ");
+        Serial.print(bms_config.getAddress());
+        Serial.print(" to value ");
+        Serial.println(bms_config.getValue());
+      } else {
+        Serial.print("Address ");
+        Serial.print(bms_config.getAddress());
+        Serial.print(": ");
+        Serial.println(bms_config.getValue());
+      }
     }
   }
 
@@ -42,7 +49,7 @@ void loop() {
 
   if (command_finished) {
     command_finished = false;
-    char *params[2]; // address,value
+    char *params[3]; // address,value
     char *cmd = const_cast<char*> (command_incoming.c_str());
     params[0] = strtok(cmd, ",");
     int i = 0;
@@ -51,14 +58,17 @@ void loop() {
     }
 
     uint8_t address = atoi(params[0]);
-    short value = atoi(params[1]);
+    uint8_t writeFlag = atoi(params[1]);
+    short value = atoi(params[2]);
     BMS_config bms_config = BMS_config();
     bms_config.setAddress(address);
     bms_config.setValue(value);
+    bms_config.setWriteFlag(writeFlag);
     bms_config.write(msg.buf);
     msg.id = ID_BMS_CONFIG;
-    msg.len = 2;
+    msg.len = 4;
     CAN.write(msg);
     Serial.println("Sent to BMS");
+    command_incoming = "";
   }
 }
