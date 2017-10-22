@@ -91,7 +91,7 @@ void loop() {
   /*
    * Handle incoming CAN messages
    */
-  /*while (CAN.read(msg)) {
+  while (CAN.read(msg)) {
     Serial.println("Recieved Can Message");
     if (msg.id == ID_DCU_STATUS) {
       DCU_status message = DCU_status(msg.buf);
@@ -115,7 +115,7 @@ void loop() {
         set_state(0);
       }
     }
-    */
+    
     wr = XB.availableForWrite();
     char buffer[10] = {'a', 'b', 'a', 'b', 'a', 'b', 'a', 'b', 'a', '\n'};
     if (wr>1 /*&& ((msg.id == ID_MC_TEMPERATURES_1) ||
@@ -147,7 +147,7 @@ void loop() {
           //if (CAN_Data.available > 0) {
           //  SDCard.println(buff);
       }
-    /*if (msg.id == ID_MC_COMMAND_MESSAGE) {
+    if (msg.id == ID_MC_COMMAND_MESSAGE) {
       MC_command_message mc_command_message = MC_command_message(msg.buf);
       Serial.print("Torque command: ");
       Serial.println(mc_command_message.get_torque_command());
@@ -163,12 +163,12 @@ void loop() {
       Serial.println(mc_command_message.get_commanded_torque_limit());
     }
   }
-  */
+  
 
   /*
    * Send state over CAN
    */
-  /*
+  
   if (timer_state_send.check()) {
     PCU_status pcu_status(state, bms_fault, imd_fault, 0, 0); // Nothing external relies on OKHS or discharge_ok voltage so sending 0s for now
     pcu_status.write(msg.buf);
@@ -209,67 +209,67 @@ void loop() {
     case PCU_STATE_FATAL_FAULT:
     break;
   }
-  */
+  
 
   /*
    * Start BMS fault timer if signal drops momentarily
    */
-  /*
+  
   if (state != PCU_STATE_WAITING_BMS_IMD && analogRead(SENSE_BMS) <= BMS_LOW) { // TODO imd/bms
     bms_faulting = true;
     timer_bms_faulting.reset();
   }
-  */
+  
 
   /*
    * Reset BMS fault condition if signal comes back within timer period
    */
-  /*
+  
   if (bms_faulting && analogRead(SENSE_BMS) > BMS_HIGH) {
     bms_faulting = false;
   }
-  */
+  
 
   /*
    * Declare BMS fault if signal still dropped
    */
-  /*
+  
   if (bms_faulting && timer_bms_faulting.check()) {
     bms_fault = true;
     set_state(PCU_STATE_FATAL_FAULT);
     Serial.println("BMS fault detected");
   }
-  */
+  
 
   /*
    * Start IMD fault timer if signal drops momentarily
    */
-  /*
+  
   if (state != PCU_STATE_WAITING_BMS_IMD && analogRead(SENSE_IMD) <= IMD_LOW) {
     imd_faulting = true;
     timer_imd_faulting.reset();
   }
-  */
+  
 
   /*
    * Reset IMD fault condition if signal comes back within timer period
    */
-  /*
+  
   if (imd_faulting && analogRead(SENSE_IMD) > IMD_HIGH) {
     imd_faulting = false;
   }
-  */
+  
 
   /*
    * Declare IMD fault if signal still dropped
    */
-  /*
+  
   if (imd_faulting && timer_imd_faulting.check()) {
     imd_fault = true;
     set_state(PCU_STATE_FATAL_FAULT);
     Serial.println("IMD fault detected");
   }
-  */
+  
 }
 
 /*
@@ -296,15 +296,21 @@ void set_state(uint8_t new_state) {
   }
 }
 
+/**
+ * @brief packages CAN message into XBee sendable form (packet)
+ * 
+ * @param msg is the CAN_message_t to represent
+ * @param packet is the destination packet
+ */
 void packageAssembler(CAN_message_t msg, char* packet) {
   int packetIndex = 0;
 
   for (int i = 0; i < 4; i++) {
     packet[packetIndex] = msg.id[i]
   }
-  memcpy(packet[0], msg.id, sizeof(msg.id));
-  memcpy(packet[4], msg.buf, sizeof(msg.buf));
-  *packet[packet.length - 1] = '\n';
+  memcpy(packet[0], msg.id, sizeof(msg.id)); // sets first 4 bytes to msg id - CAN identifier
+  memcpy(packet[4], msg.buf, sizeof(msg.buf)); // sets next 8 bytes as data 
+  *packet[packet.length - 1] = '\n'; // sets last char as new line character
 
   return packet;
 }
