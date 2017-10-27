@@ -122,18 +122,18 @@ void setup() {
  */
 
 void loop() {
-    if (ENABLE_CAN) {
-        while (CAN.read(msg)) {
-            if (msg.id == NULL) { // TODO replace with approate definition
-                // lines set out for changing BMS variables TODO
-                Serial.println("Reading BMS");
-            }
-        }    
-    }
-    process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
+        /*if (ENABLE_CAN) {
+            while (CAN.read(msg)) {
+                if (msg.id == NULL) { // TODO replace with approate definition
+                    // lines set out for changing BMS variables TODO
+                    Serial.println("Reading BMS");
+                }
+            }    
+        }*/
+    //process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
     //bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
-    balance_cells();
-    process_temps(); // sto datap in bmsTempMessage object.
+        //balance_cells();
+        //process_temps(); // sto datap in bmsTempMessage object.
     /*process_current(); // sto data in bmsCurrentMessage object.
 
     // write to CAN!
@@ -143,11 +143,24 @@ void loop() {
     if (!bmsStatusMessage.getBMSStatusOK()) {
         Serial.println("STATUS NOT GOOD!!!!!!!!!!!!!!!");
         digitalWrite(BMS_OK_PIN, LOW);
-    }
+    }*/
     watchDogFlag = !watchDogFlag; // inverting watchDogFlag
     // Prevents WATCH_DOG_TIMER timeout
-    digitalWrite(WATCH_DOG_TIMER, watchDogFlag);*/
-
+    digitalWrite(WATCH_DOG_TIMER, watchDogFlag);
+    wakeFromSleepAllChips();
+    LTC6804_wrcfg(TOTAL_IC, tx_cfg);
+    wakeFromIdleAllChips();
+    delay(10);
+    wakeup_idle();
+    uint8_t data[1][8];
+    LTC6804_rdcfg(1,data);
+    for (int i = 0;i<8;i++){
+      Serial.print("register: ");
+      Serial.print(i);
+      Serial.print(" value: ");
+      Serial.println(data[0][i]);
+    }
+    delay(2000);
     
 }
 

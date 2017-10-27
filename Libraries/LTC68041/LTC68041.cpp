@@ -450,6 +450,49 @@ void LTC6804_rdcv_reg(uint8_t reg, //Determines which cell voltage register is r
   4. Send Global Command to LTC6804 daisy chain
 */
 
+void LTC6804_stat_reg(uint8_t reg, //Determines which cell voltage register is read back
+					  uint8_t total_ic, //the number of ICs in the
+					  uint8_t *data //An array of the unparsed cell codes
+					  )
+{
+  const uint8_t REG_LEN = 8; //number of bytes in each ICs register + 2 bytes for the PEC
+  uint8_t cmd[4];
+  uint16_t cmd_pec;
+
+  //1
+  if (reg == 1)     //1: RDCVA
+  {
+    cmd[1] = 0x11;
+    cmd[0] = 0x00;
+  }
+  else if(reg == 2) //2: RDCVB
+  {
+    cmd[1] = 0x12;
+    cmd[0] = 0x00;
+  }
+
+  //2
+  cmd_pec = pec15_calc(2, cmd);
+  cmd[2] = (uint8_t)(cmd_pec >> 8);
+  cmd[3] = (uint8_t)(cmd_pec);
+
+  //3
+  wakeup_idle (); //This will guarantee that the LTC6804 isoSPI port is awake. This command can be removed.
+
+  //4
+  output_low(LTC6804_CS);
+  spi_write_read(cmd,4,data,(REG_LEN*total_ic));
+  output_high(LTC6804_CS);
+
+}
+/*
+  LTC6804_rdcv_reg Function Process:
+  1. Determine Command and initialize command array
+  2. Calculate Command PEC
+  3. Wake up isoSPI, this step is optional
+  4. Send Global Command to LTC6804 daisy chain
+*/
+
 
 /***********************************************************************************//**
  \brief Reads and parses the LTC6804 auxiliary registers.
