@@ -876,6 +876,55 @@ void LTC6804_wrcfg(uint8_t total_ic, //The number of ICs being written to
   output_high(LTC6804_CS);
   free(cmd);
 }
+
+void LTC6804_wrreg(uint8_t cmdin[2], uint8_t total_ic, //The number of ICs being written to
+				   uint8_t config[][6] //A two dimensional array of the configuration data that will be written
+				   )
+{
+  const uint8_t BYTES_IN_REG = 6;
+  const uint8_t CMD_LEN = 4+(8*total_ic);
+  uint8_t *cmd;
+  uint16_t cfg_pec;
+  uint16_t cmd_pec;
+  uint8_t cmd_index; //command counter
+
+  cmd = (uint8_t *)malloc(CMD_LEN*sizeof(uint8_t));
+
+  //1
+  cmd[0] = cmdin[0];
+  cmd[1] = cmdin[1];
+  cmd_pec = pec15_calc(2, cmdin);
+  cmd[2] = (uint8_t)(cmd_pec >> 8);
+  cmd[3] = (uint8_t)(cmd_pec);
+
+  //2
+  cmd_index = 4;
+  for (uint8_t current_ic = total_ic; current_ic > 0; current_ic--) 			// executes for each LTC6804 in daisy chain, this loops starts with
+  {																				// the last IC on the stack. The first configuration written is
+																				// received by the last IC in the daisy chain
+
+    for (uint8_t current_byte = 0; current_byte < BYTES_IN_REG; current_byte++) // executes for each of the 6 bytes in the CFGR register
+    {																			// current_byte is the byte counter
+
+      cmd[cmd_index] = config[current_ic-1][current_byte]; 						//adding the config data to the array to be sent
+      cmd_index = cmd_index + 1;
+    }
+	//3
+    cfg_pec = (uint16_t)pec15_calc(BYTES_IN_REG, &config[current_ic-1][0]);		// calculating the PEC for each ICs configuration register data
+    cmd[cmd_index] = (uint8_t)(cfg_pec >> 8);
+    cmd[cmd_index + 1] = (uint8_t)cfg_pec;
+    cmd_index = cmd_index + 2;
+  }
+
+  //4
+  wakeup_idle (); 															 	//This will guarantee that the LTC6804 isoSPI port is awake.This command can be removed.
+  //5
+  output_low(LTC6804_CS);
+  spi_write_array(CMD_LEN, cmd);
+  output_high(LTC6804_CS);
+  free(cmd);
+}
+
 /*
 	WRCFG Sequence:
 

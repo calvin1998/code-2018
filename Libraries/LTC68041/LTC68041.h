@@ -206,6 +206,8 @@ void LTC6804_clraux();
 
 void LTC6804_wrcfg(uint8_t nIC,uint8_t config[][6]);
 
+void LTC6804_wrreg(uint8_t cmdin[2],uint8_t nIC,uint8_t config[][6]);
+
 int8_t LTC6804_rdcfg(uint8_t nIC, uint8_t r_config[][8]);
 
 int8_t LTC6804_rdreg(uint8_t cmdin[2], uint8_t nIC, uint8_t r_config[][8]);
