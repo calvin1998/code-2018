@@ -153,12 +153,15 @@ void loop() {
     delay(10);
     wakeup_idle();
     uint8_t data[1][8];
-    LTC6804_rdcfg(1,data);
+    uint8_t cmd[2] = {0x00,0x12};
+    int res = LTC6804_rdreg(cmd,1,data);
     for (int i = 0;i<8;i++){
       Serial.print("register: ");
       Serial.print(i);
       Serial.print(" value: ");
       Serial.println(data[0][i]);
+       Serial.print("PEC:");
+       Serial.println(res);
     }
     delay(2000);
     

@@ -932,7 +932,7 @@ int8_t LTC6804_rdcfg(uint8_t total_ic, //Number of ICs in the system
   //1
   cmd[0] = 0x00;
   cmd[1] = 0x02;
-  cmd[2] = 0x2b;
+  cmd[2] = 0x2B;
   cmd[3] = 0x0A;
 
   //2
@@ -963,6 +963,61 @@ int8_t LTC6804_rdcfg(uint8_t total_ic, //Number of ICs in the system
   //5
   return(pec_error);
 }
+
+int8_t LTC6804_rdreg(uint8_t cmdin[2],uint8_t total_ic, //Number of ICs in the system
+				     uint8_t r_config[][8] //A two dimensional array that the function stores the read configuration data.
+					 )
+{
+  const uint8_t BYTES_IN_REG = 8;
+
+  uint8_t cmd[4];
+  uint8_t *rx_data;
+  int8_t pec_error = 0;
+  uint16_t data_pec;
+  uint16_t received_pec;
+  uint16_t cmd_pec;
+
+  rx_data = (uint8_t *) malloc((8*total_ic)*sizeof(uint8_t));
+
+  //1
+  cmd[0] = cmdin[0];
+  cmd[1] = cmdin[1];
+  cmd_pec = pec15_calc(2, cmdin);
+  cmd[2] = (uint8_t)(cmd_pec >> 8);
+  cmd[3] = (uint8_t)(cmd_pec);
+
+
+  //2
+  wakeup_idle (); //This will guarantee that the LTC6804 isoSPI port is awake. This command can be removed.
+  //3
+  output_low(LTC6804_CS);
+  spi_write_read(cmd, 4, rx_data, (BYTES_IN_REG*total_ic));         //Read the configuration data of all ICs on the daisy chain into
+  output_high(LTC6804_CS);													//rx_data[] array
+
+  for (uint8_t current_ic = 0; current_ic < total_ic; current_ic++) 			//executes for each LTC6804 in the daisy chain and packs the data
+  { 																			//into the r_config array as well as check the received Config data
+																				//for any bit errors
+	//4.a
+    for (uint8_t current_byte = 0; current_byte < BYTES_IN_REG; current_byte++)
+    {
+      r_config[current_ic][current_byte] = rx_data[current_byte + (current_ic*BYTES_IN_REG)];
+    }
+    //4.b
+    received_pec = (r_config[current_ic][6]<<8) + r_config[current_ic][7];
+    data_pec = pec15_calc(6, &r_config[current_ic][0]);
+    if(received_pec != data_pec)
+    {
+      pec_error = -1;
+    }
+  }
+
+  free(rx_data);
+  //5
+  return(pec_error);
+}
+
+
+
 /*
 	RDCFG Sequence:
 

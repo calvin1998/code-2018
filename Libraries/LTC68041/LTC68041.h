@@ -208,6 +208,8 @@ void LTC6804_wrcfg(uint8_t nIC,uint8_t config[][6]);
 
 int8_t LTC6804_rdcfg(uint8_t nIC, uint8_t r_config[][8]);
 
+int8_t LTC6804_rdreg(uint8_t cmdin[2], uint8_t nIC, uint8_t r_config[][8]);
+
 void wakeup_idle();
 
 void wakeup_sleep();
