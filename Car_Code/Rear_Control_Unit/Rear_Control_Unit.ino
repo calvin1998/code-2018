@@ -8,7 +8,7 @@
 #include <HyTech17.h>
 #include <Metro.h>
 
-void packageAssembler(CAN_message_t*, char&);
+// void packageAssembler(CAN_message_t*, char&);
 
 /*
  * Pin definitions
@@ -56,10 +56,15 @@ boolean imd_fault = false;
 boolean imd_faulting = false;
 uint8_t state = PCU_STATE_WAITING_BMS_IMD;
 
+/**
+ * Debug flags
+ */
+boolean CAN_enabled = false;
+
 /*
  * Xbee Variables
  */
-unsigned long xbee_baud = 19200;
+unsigned long xbee_baud = 115200;
 const int XBEE_LED = 13;
 byte xbee_buff[80];
 
@@ -75,8 +80,10 @@ void setup() {
   pinMode(SSR_LATCH_IMD, OUTPUT);
   pinMode(XBEE_LED, OUTPUT);
 
+  Serial.println("CAN transceiver initialized");
+  
   Serial.begin(115200);
-  CAN.begin();
+  if (CAN_enabled) CAN.begin();
   XB.begin(xbee_baud);
   delay(100);
   Serial.println("CAN transceiver initialized");
@@ -86,12 +93,34 @@ void setup() {
 }
 
 void loop() {
-
+  Serial.println("loop start");
   int wr; // used for Xbee communication
+
+  /**
+   * Sending XBee data if nothing else on CAN line
+   */
+  if (!CAN_enabled) {
+    // TestXBeeMessageSend();
+    wr = XB.availableForWrite();
+    char buffer[] = {'t','e','s','t',' ','s','e','n','d','\n'};
+    Serial.println("Testing sending functionality");
+    if (wr > 1) {
+        Serial.println("Sending Value over XBee. Baud " + xbee_baud);
+        XB.write(buffer, sizeof(buffer));
+
+        digitalWrite(XBEE_LED, HIGH);
+        delay(10);
+        digitalWrite(XBEE_LED, LOW);
+        delay(10);
+    }
+  }
+
+
   /*
    * Handle incoming CAN messages
    */
-  while (CAN.read(msg)) {
+
+  while (CAN_enabled && CAN.read(msg)) {
     Serial.println("Recieved Can Message");
     if (msg.id == ID_DCU_STATUS) {
       DCU_status message = DCU_status(msg.buf);
@@ -117,7 +146,7 @@ void loop() {
     }
     
     wr = XB.availableForWrite();
-    char buffer[10] = {'a', 'b', 'a', 'b', 'a', 'b', 'a', 'b', 'a', '\n'};
+    char buffer[3] = {'a', 'b', '\n'};
     if (wr>1 /*&& ((msg.id == ID_MC_TEMPERATURES_1) ||
          (msg.id == ID_MC_TEMPERATURES_3) ||
          (msg.id == ID_MC_MOTOR_POSITION_INFORMATION) ||
@@ -134,8 +163,9 @@ void loop() {
           //XB.write(buffer, sizeof(buffer));
 
           char packet[13] = {};
-          packageAssembler(msg, packet);
-          XB.write(packet, sizeof(packet));
+          // packageAssembler(msg, packet);
+          // XB.write(packet, sizeof(packet));
+          XB.write(buffer, sizeof(buffer));
 
           digitalWrite(XBEE_LED,HIGH);
           delay(10);
@@ -302,15 +332,34 @@ void set_state(uint8_t new_state) {
  * @param msg is the CAN_message_t to represent
  * @param packet is the destination packet
  */
-void packageAssembler(CAN_message_t msg, char* packet) {
-  int packetIndex = 0;
+// void packageAssembler(CAN_message_t msg, char* packet) {
+//   int packetIndex = 0;
 
-  for (int i = 0; i < 4; i++) {
-    packet[packetIndex] = msg.id[i]
-  }
-  memcpy(packet[0], msg.id, sizeof(msg.id)); // sets first 4 bytes to msg id - CAN identifier
-  memcpy(packet[4], msg.buf, sizeof(msg.buf)); // sets next 8 bytes as data 
-  *packet[packet.length - 1] = '\n'; // sets last char as new line character
+//   for (int i = 0; i < 4; i++) {
+//     packet[packetIndex] = msg.id[i]
+//   }
+//   memcpy(packet[0], msg.id, sizeof(msg.id)); // sets first 4 bytes to msg id - CAN identifier
+//   memcpy(packet[4], msg.buf, sizeof(msg.buf)); // sets next 8 bytes as data 
+//   *packet[packet.length - 1] = '\n'; // sets last char as new line character
 
-  return packet;
+//   return packet;
+// }
+
+/**
+ * Testing XBee functionality when CAN is disabled
+ */
+void TestXBeeMessageSend() {
+    int wr;
+    wr = XB.availableForWrite();
+    char buffer[] = {'t','e','s','t',' ','s','e','n','d','\n'};
+    Serial.println("Testing sending functionality");
+    if (wr > 1) {
+        Serial.println("Sending Value over XBee. Baud " + xbee_baud);
+        XB.write(buffer, sizeof(buffer));
+
+        digitalWrite(XBEE_LED, HIGH);
+        delay(10);
+        digitalWrite(XBEE_LED, LOW);
+        delay(10);
+    }
 }
