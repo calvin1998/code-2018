@@ -38,7 +38,7 @@ short voltage_difference_threshold = 500; //100 mV, 0.1V
 
 #define ENABLE_CAN false // use this definition to enable or disable CAN
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
-#define TOTAL_IC 2 // DEBUG: We have temporarily overwritten this value
+#define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
 #define TOTAL_CELLS 12
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
 #define THERMISTOR_RESISTOR_VALUE 6700 // TODO: Double check what resistor is used on the resistor divider.
@@ -104,7 +104,7 @@ void setup() {
 
     LTC6804_initialize();
     init_cfg();
-    poll_cell_voltage();
+    poll_cell_voltage();                                                                                                                                  
     memcpy(cell_delta_voltage, cell_voltages, 2 * TOTAL_IC * TOTAL_CELLS);
     bmsCurrentMessage.setChargingState(CHARGING);
     Serial.println("Setup Complete!");
@@ -148,18 +148,24 @@ void loop() {
     // Prevents WATCH_DOG_TIMER timeout
     digitalWrite(WATCH_DOG_TIMER, watchDogFlag);
     wakeFromSleepAllChips();
+    tx_cfg[0][1] = 0b01010010;
+    tx_cfg[0][2] = 0b10000111;
+    tx_cfg[0][3] = 0b10100010;
     LTC6804_wrcfg(TOTAL_IC, tx_cfg);
     wakeFromIdleAllChips();
     delay(10);
     wakeup_idle();
+
+    
     uint8_t data[1][8];
     uint8_t cmd[2] = {0x00,0x12};
-    int res = LTC6804_rdreg(cmd,1,data);
+    int res = LTC6804_rdcfg(0,data);
     for (int i = 0;i<8;i++){
       Serial.print("register: ");
       Serial.print(i);
       Serial.print(" value: ");
       Serial.println(data[0][i]);
+
        Serial.print("PEC:");
        Serial.println(res);
     }
@@ -175,9 +181,9 @@ void init_cfg()
     for(int i = 0; i < TOTAL_IC; i++)
     {
         tx_cfg[i][0] = 0xFE;
-        tx_cfg[i][1] = 0x00 ;
-        tx_cfg[i][2] = 0x00 ;
-        tx_cfg[i][3] = 0x00 ;
+        tx_cfg[i][1] = 0x52 ;
+        tx_cfg[i][2] = 0x87 ;
+        tx_cfg[i][3] = 0xA2 ;
         tx_cfg[i][4] = 0x00 ;
         tx_cfg[i][5] = 0x00 ;
     }
