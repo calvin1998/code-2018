@@ -1,29 +1,27 @@
-double r = 0.06/250;
+#define V_REF 1.067
+
 double current;
-double R1 = 2183;
-double R2 = 330.5;
+double R1 = 150.3;
+double R2 = 47.7;
+double resistance = 0.033;
 
 void setup() {
   Serial.begin(9600);
-  //analogReference(EXTERNAL);
+  analogReference(INTERNAL1V1);
 }
 
 void loop() {
-  int currentReading = analogRead(A14);
-  double ref = analogRead(A7) * (4.455 / 1023.0);
-  double voltage_drop = currentReading * (4.455 / 1023.0)/(ref/3.3);
-  int voltageReading = analogRead(A0);
-  double cell_voltage = voltageReading * (4.455 / 1023.0)/(ref/3.3);
-  //cell_voltage = (cell_voltage*(2524.0))/331.2;
-  current = (voltage_drop/r)/35;
+  double voltage_reading = analogRead(A0) * (V_REF / 1023.0);
+  double cell_voltage = (voltage_reading/R2)*(R1+R2);
+  current = cell_voltage/resistance;
 
   Serial.print(millis());
   Serial.print(" ");
-  Serial.print(current);
+  Serial.print(voltage_reading);
   Serial.print(" ");
-  Serial.print(cell_voltage);
+    Serial.print(current);
   Serial.print(" ");
-  Serial.println(voltage_drop);
+  Serial.println(cell_voltage);
   delay(100);
   
 
