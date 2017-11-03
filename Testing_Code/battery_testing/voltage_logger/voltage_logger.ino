@@ -8,6 +8,7 @@ double resistance = 0.033;
 void setup() {
   Serial.begin(9600);
   analogReference(INTERNAL1V1);
+  start = millis();
 }
 
 void loop() {
@@ -17,9 +18,7 @@ void loop() {
 
   Serial.print(millis());
   Serial.print(" ");
-  Serial.print(voltage_reading);
-  Serial.print(" ");
-    Serial.print(current);
+  Serial.print(current);
   Serial.print(" ");
   Serial.println(cell_voltage);
   delay(100);
