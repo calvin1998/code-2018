@@ -32,10 +32,23 @@ CAN::CAN() {
     timeout.tv_usec = 100000;
 }
 
+/**
+ * Reads a frame of data from the CAN bus.
+ * params:
+ *  canframe_t *read_frame: the frame struct that will be loaded with data
+ * returns:
+ *  0 if successful
+ *  1 if connecting to socket failed
+ *  2 if reading from CAN bus failed
+ *  3 if read incorrect number of bytes from CAN bus
+ *  4 if receivd can ID is zero (invalid)
+ */
 int CAN::read(canframe_t* read_frame) {
+    // zero out receive frame struct
     bzero(&recv_frame, sizeof(recv_frame));
     int nbytes;
 
+    // setup socket
     FD_ZERO(&rdfs);
     FD_SET(sock, &rdfs);
     if (select(sock + 1, &rdfs, nullptr, nullptr, &timeout) < 0) {
@@ -44,10 +57,12 @@ int CAN::read(canframe_t* read_frame) {
     }
 
     if (FD_ISSET(sock, &rdfs)) {
+        // populate message parameters
         iov.iov_len = sizeof(recv_frame);
         msg.msg_namelen = sizeof(addr);
         msg.msg_flags = 0;
 
+        // receive message from socket
         nbytes = recvmsg(sock, &msg, 0);
         if (nbytes < 0) {
             return 2;
@@ -65,6 +80,16 @@ int CAN::read(canframe_t* read_frame) {
     return 0;
 }
 
+/**
+ * Sends a CAN message on specified ID to the CAN bus.
+ * params:
+ *  int id: the CAN ID to send message with
+ *  uint8_t *data: the data buffer to send
+ *  uint8_t msg_len: length of data buffer (0..8)
+ * returns:
+ *  0 if successful
+ *  1 if failed to write to socket
+ */
 int CAN::send(int id, uint8_t *data, uint8_t msg_len) {
     bzero(&send_frame, sizeof(canframe_t));
     send_frame.can_id = id;
