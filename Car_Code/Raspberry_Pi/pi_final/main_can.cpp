@@ -13,7 +13,7 @@
 
 #include "can_lib.h"
 #include "bt_lib.h"
-#include "../../HyTech17_Library/HyTech17.h"
+#include "../../../Libraries/HyTech17_Library/HyTech17.h"
 
 #define RED_CONSOLE "\033[31;1m"
 #define GREEN_CONSOLE "\033[32;1m"
