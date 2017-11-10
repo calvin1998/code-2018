@@ -38,8 +38,8 @@ short voltage_difference_threshold = 500; //100 mV, 0.1V
 
 #define ENABLE_CAN false // use this definition to enable or disable CAN
 /********GLOBAL ARRAYS/VARIABLES CONTAINING DATA FROM CHIP**********/
-#define TOTAL_IC 1 // DEBUG: We have temporarily overwritten this value
-#define TOTAL_CELLS 12
+#define TOTAL_IC 2 // DEBUG: We have temporarily overwritten this value
+#define TOTAL_CELLS 9
 #define TOTAL_THERMISTORS 3 // TODO: Double check how many thermistors are being used.
 #define THERMISTOR_RESISTOR_VALUE 6700 // TODO: Double check what resistor is used on the resistor divider.
 uint16_t cell_voltages[TOTAL_IC][12]; // contains 12 battery cell voltages. Numbers are stored in 0.1 mV units.
@@ -130,10 +130,11 @@ void loop() {
                 }
             }    
         }*/
-    //process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
+    poll_cell_voltage();
+    process_voltages(); // polls controller, and sto data in bmsVoltageMessage object.
     //bmsVoltageMessage.setLow(37408); // DEBUG Remove before final code
-        //balance_cells();
-        //process_temps(); // sto datap in bmsTempMessage object.
+    balance_cells();
+    process_temps(); // sto datap in bmsTempMessage object.
     /*process_current(); // sto data in bmsCurrentMessage object.
 
     // write to CAN!
@@ -145,18 +146,20 @@ void loop() {
         digitalWrite(BMS_OK_PIN, LOW);
     }*/
     watchDogFlag = !watchDogFlag; // inverting watchDogFlag
+    digitalWrite(WATCH_DOG_TIMER, watchDogFlag);
     // Prevents WATCH_DOG_TIMER timeout
+    /*
     digitalWrite(WATCH_DOG_TIMER, watchDogFlag);
     wakeFromSleepAllChips();
     tx_cfg[0][1] = 0b01010010;
     tx_cfg[0][2] = 0b10000111;
     tx_cfg[0][3] = 0b10100010;
-    LTC6804_wrcfg(TOTAL_IC, tx_cfg);
+    LTC6804_wrcfg(TOTAL_IC, tx_cfg);*/
     wakeFromIdleAllChips();
     delay(10);
     wakeup_idle();
 
-    
+    /*
     uint8_t data[1][8];
     uint8_t cmd[2] = {0x00,0x12};
     int res = LTC6804_rdcfg(0,data);
@@ -170,7 +173,7 @@ void loop() {
        Serial.println(res);
     }
     delay(2000);
-    
+    */
 }
 
 /*!***********************************
