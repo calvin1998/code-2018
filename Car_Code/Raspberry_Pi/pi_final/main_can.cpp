@@ -13,7 +13,7 @@
 
 #include "can_lib.h"
 #include "bt_lib.h"
-#include "../../HyTech17_Library/HyTech17.h"
+#include "../../../Libraries/HyTech17_Library/HyTech17.h"
 
 #define RED_CONSOLE "\033[31;1m"
 #define GREEN_CONSOLE "\033[32;1m"
@@ -38,6 +38,7 @@ int process_data_for_sending(uint8_t* bt_data, canframe_t* frame);
 void print(canframe_t* frame);
 void log_to_file(canframe_t* frame);
 
+// Define output file streams and time variables
 std::ofstream log_mc;
 std::ofstream log_bms;
 std::ofstream log_main_ard;
@@ -53,6 +54,7 @@ char timestr[20];
 std::string base_log_dir = "/home/pi/logs/";
 
 int main() {
+    // Open the output file streams
     log_mc.open(base_log_dir + "logs_mc.txt", std::ios::out | std::ios::app);
     log_bms.open(base_log_dir + "logs_bms.txt", std::ios::out | std::ios::app);
     log_main_ard.open(base_log_dir + "logs_pcu.txt",
@@ -62,24 +64,33 @@ int main() {
     log_rear_ard.open(base_log_dir + "logs_dashboard.txt",
             std::ios::out | std::ios::app);
 
+    // Initialize previous time values to current time
     gettimeofday(&log_mc_prev_time, NULL);
     gettimeofday(&log_bms_prev_time, NULL);
     gettimeofday(&log_main_ard_prev_time, NULL);
     gettimeofday(&log_evdc_prev_time, NULL);
     gettimeofday(&log_rear_ard_prev_time, NULL);
 
+    // Initialize CAN and Bluetooth libraries
     CAN can;
-    BT bt(10);
+    BT bt(10); // use port 10
     bt.connect();
 
+    // Zero out amp history, initialize current/previous time variables
     bzero(amp_history, TIME_LEFT_HIST_LEN * sizeof(uint16_t));
     gettimeofday(&prev_time, NULL);
     curr_time = prev_time;
 
+    // Initialize CAN frame and Bluetooth data buffer
+    // canframe_t struct:
+    //      uint32_t can_id
+    //      uint8_t  can_dlc -- length of data (0..8)
+    //      uint8_t  data[8] -- up to 8 bytes of data
     canframe_t *frame = (canframe_t*) malloc(sizeof(canframe_t));
     uint8_t bt_buffer[BT::DATA_LENGTH];
 
     while (1) {
+        // continually read messages off the CAN bus
         if (can.read(frame) > 0) {
             std::cout << "Error reading message or no message to read" << std::endl;
         } else {
@@ -95,6 +106,7 @@ int main() {
         }
     }
 
+    // cleanup
     free(frame);
     bt.disconnect();
     log_mc.close();
@@ -105,6 +117,13 @@ int main() {
     return 0;
 }
 
+/**
+ * Processes CAN frame to extract useful information and load into Bluetooth
+ * data frame.
+ * params:
+ *  uint8_t *bt_data: empty bluetooth data frame
+ *  canframe_t *frame: CAN frame containing data we want to extract
+ */
 int process_data_for_sending(uint8_t* bt_data, canframe_t* frame) {
     uint16_t value;
     bzero(bt_data, BT::DATA_LENGTH);
@@ -149,31 +168,34 @@ int process_data_for_sending(uint8_t* bt_data, canframe_t* frame) {
                 | (tcu_status.get_brake_implausibility() << 1) | tcu_status.get_brake_pedal_active();
             break;
         }
-        case 0xA2:
+        case ID_MC_TEMPERATURES_3:
         {
-            // Motor Temp (0xA2, 4-5)
-            value = ((frame->data[5] << 8) | frame->data[4]) / 10;
+            // Motor Temp (0xA2)
+            MC_temperatures_3 mc_temps(frame->data);
+            value = mc_temps.get_motor_temperature() / 10;
             bt_data[0] = 3;
             memcpy(&bt_data[1], &value, sizeof(value));
             break;
         }
-        case 0xA5:
+        case ID_MC_MOTOR_POSITION_INFORMATION:
         {
-            // Speed (0xA5, 2-3)
+            // Speed (0xA5)
             // RPM * (16/35) * 5.2 = feet / min
             // * 60/5280 = mph
             // Multiply by 10 to send
             // Circumference = 5.2 ft
-            value = ((frame->data[3] << 8) | frame->data[2]);
+            MC_motor_position_information position_info(frame->data);
+            value = position_info.get_motor_speed();
             value = (uint16_t) (value * (16.0/35) * 5.2 * (60.0/5280));
             bt_data[0] = 4;
             memcpy(&bt_data[1], &value, sizeof(value));
             break;
         }
-        case 0xA6:
+        case ID_MC_CURRENT_INFORMATION:
         {
-            // Current Draw (0xA6, 6-7)
-            value = ((frame->data[7] << 8) | frame->data[6]);
+            // Current Draw (0xA6)
+            MC_current_information current_info(frame->data);
+            value = current_info.get_dc_bus_current();
             bt_data[0] = 5;
             memcpy(&bt_data[1], &value, sizeof(value));
             break;
@@ -195,8 +217,14 @@ int process_data_for_sending(uint8_t* bt_data, canframe_t* frame) {
     return 0;
 }
 
+/**
+ * Prints CAN ID and data to the terminal.
+ * params:
+ *  canframe_t *frame: the CAN frame to print
+ */
 void print(canframe_t* frame) {
     if (frame && frame->can_dlc > 0) {
+        // frame is not null and has positive length
         printf("%x: ", frame->can_id);
         for (uint8_t i = 0; i < frame->can_dlc; ++i) {
             //std::cout << CONSOLE_COLORS[rand() % 4];
@@ -208,6 +236,13 @@ void print(canframe_t* frame) {
     }
 }
 
+/**
+ * Logs CAN data to file with timestamp. Chooses appropriate file based on
+ * CAN ID.
+ * This function could use a complete rewrite.
+ * params:
+ *  canframe_t *frame: the frame to be written to file
+ */
 void log_to_file(canframe_t* frame) {
     std::ofstream* out_file;
     gettimeofday(&curr_time, NULL);
