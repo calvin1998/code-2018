@@ -334,7 +334,7 @@ void process_voltages() {
     bmsVoltageMessage.setHigh(maxVolt);
 
     // TODO: Low and High voltage error checking.
-    if (bmsVoltageMessage.getHigh() > voltage_cutoff_high) {
+    if (bmsVoltageMessage.getHigh() > voltage_cutoff_high*10) {
         bmsStatusMessage.setOvervoltage(true);
         Serial.println("VOLTAGE FAULT!!!!!!!!!!!!!!!!!!!");
         Serial.print("max IC: "); Serial.println(maxIC);
