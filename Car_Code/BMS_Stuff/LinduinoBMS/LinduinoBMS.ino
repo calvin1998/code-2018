@@ -310,7 +310,7 @@ void process_voltages() {
     int minCell = 0;
     for (int ic = 0; ic < TOTAL_IC; ic++) {
         for (int cell = 0; cell < TOTAL_CELLS; cell++) {
-            if ((ic != 0 || cell != 4) && (ic != 1 || cell != 7)&&!ignore_cell[ic][cell]) {
+            //if ((ic != 0 || cell != 4) && (ic != 1 || cell != 7)&&!ignore_cell[ic][cell]) {
                 uint16_t currentCell = cell_voltages[ic][cell];
                 cell_delta_voltage[ic][cell] = currentCell - cell_delta_voltage[ic][cell];
                 if (currentCell > maxVolt) {
@@ -324,7 +324,7 @@ void process_voltages() {
                     minCell = cell;
                 }
                 totalVolts += currentCell * 0.0001;
-            }
+            //}
         }
     }
     avgVolt = totalVolts / (TOTAL_IC * TOTAL_CELLS); // stored as double volts
