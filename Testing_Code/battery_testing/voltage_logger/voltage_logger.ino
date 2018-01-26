@@ -1,3 +1,19 @@
+//Robert Kuramshin
+//Created Fall 2017
+//Designed for the battery capacity testing rig.
+
+'''
+TODO (ordered in no particular order):
+1.Currently the starting voltage for each cell is slighly different which makes directly comparing cells hard.
+  Consider adding a pre-test procedure which drains the cell to a predetermined voltage from which the cell would be tested. Ex: 4.12V
+  This would "even the playing field" but would require cells to be charged past a certain minimum point.
+  P.S. This *would not* require tests to be re-run.
+2.Clean up outputs, slow down printing speed.
+3.More clearly indicate that a cell is done testing. 
+4.Check consistency by retesting a previous cell(not a code thing but idk where else to put it)
+5.Based on results from ^ consider recalibrating the results. Could be a good idea to do regularly if its a problem.
+'''
+
 #define V_REF 1.066
 #define MIN_DROP 0.1
 #define R1 149.8
@@ -55,6 +71,7 @@ void loop() {
   }
 
   if(discharging){
+    Serial.print("DISCHARGING ");
     double period = current_millis - last_millis;
     charge += current*1000 * (period/1000/60/60);    
     Serial.print("Elapsed Time: ");
@@ -67,6 +84,7 @@ void loop() {
     Serial.print(charge);
     Serial.println("mAh");
   }else if(end_discharge){
+    Serial.print("DONE ");
     current = 0;
     Serial.print("Elapsed Time: ");
     Serial.print((current_millis-start)/1000);
