@@ -11,6 +11,7 @@ TODO (ordered in no particular order):
 2.Clean up outputs, slow down printing speed.
 3.Check consistency by retesting a previous cell(not a code thing but idk where else to put it)
 4.Based on results from ^ consider recalibrating the results. Could be a good idea to do regularly if its a problem.
+5.Consider adding a physical switch to initate test.
 */
 
 #define V_REF 1.066     //Arduino analog reference reading voltage(hand calibrated)
@@ -20,6 +21,7 @@ TODO (ordered in no particular order):
 #define RLOAD 0.03857   //load resistance measure by hand
 #define TPIN 9          //transistor driving pin
 #define VPIN A0         //analog voltage reading pin
+#define MIN_START_V 4.1 //minimum voltage needed to test the cell
 
 double start_voltage = 0;
 double cell_voltage = 0;
@@ -85,52 +87,69 @@ void printReading(byte state){
   //state indication
   switch(state){
     case 0:
-    Serial.print("0 - READY ");
-    Serial.print("Voltage: ");
-    Serial.print(1000*cell_voltage);
-    Serial.println("mV");
-    break;
+      if(1000*cell_voltage >= MIN_START_V){
+        Serial.print("0 - READY ");
+      }else {
+        Serial.print("0 - STARTING VOLTAGE TOO LOW (<");
+        Serial.print(MIN_START_V);
+        Serial.print(")");
+      }
+      Serial.print("0 - READY ");
+      Serial.print("Voltage: ");
+      Serial.print(1000*cell_voltage);
+      Serial.println("mV");
+      break;
     case 1:
-    Serial.print("1 - PREPARING ");
-    break;
+      Serial.print("1 - PREPARING ");
+      break;
     case 2:
-    Serial.print("2 - DISCHARGING ");
-    double period = current_millis - last_millis;
-    charge += current*1000 * (period/1000/60/60);    
-    Serial.print("Elapsed Time: ");
-    Serial.print((current_millis-start)/1000);
-    Serial.print("s Voltage: ");
-    Serial.print(1000*cell_voltage);
-    Serial.print("mV Current: ");
-    Serial.print(1000*current);
-    Serial.print("mA Elapsed Charge: ");
-    Serial.print(charge);
-    Serial.println("mAh");
-    break;
+      Serial.print("2 - DISCHARGING ");
+      double period = current_millis - last_millis;
+      charge += current*1000 * (period/1000/60/60);    
+      Serial.print("Elapsed Time: ");
+      Serial.print((current_millis-start)/1000);
+      Serial.print("s Voltage: ");
+      Serial.print(1000*cell_voltage);
+      Serial.print("mV Current: ");
+      Serial.print(1000*current);
+      Serial.print("mA Elapsed Charge: ");
+      Serial.print(charge);
+      Serial.println("mAh");
+      break;
     case 3:
-     Serial.print("3 - DONE ");
-    current = 0;
-    Serial.print("Elapsed Time: ");
-    Serial.print((current_millis-start)/1000);
-    
-    Serial.print("s Ellapsed Charge: ");
-    Serial.print(charge);
+      Serial.print("3 - DONE ");
+      current = 0;
+      Serial.print("Elapsed Time: ");
+      Serial.print((current_millis-start)/1000);
+      
+      Serial.print("s Ellapsed Charge: ");
+      Serial.print(charge);
 
-    Serial.print("mAh Start Voltage: ");
-    Serial.print(1000*start_voltage);
-    
-    Serial.print("mV Voltage: ");
-    Serial.print(1000*cell_voltage);
- 
-    Serial.print("mV Current: ");
-    Serial.print(1000*current);
-    
-    Serial.print("mA Voltage Drop: ");
-    Serial.print(1000*voltage_drop);
-    
-    Serial.print("mV Internal Resistance: ");
-    Serial.print(1000000*internal_resistance);
-    Serial.println("uohm");
-    break;
+      Serial.print("mAh Start Voltage: ");
+      Serial.print(1000*start_voltage);
+      
+      Serial.print("mV Voltage: ");
+      Serial.print(1000*cell_voltage);
+  
+      Serial.print("mV Current: ");
+      Serial.print(1000*current);
+      
+      Serial.print("mA Voltage Drop: ");
+      Serial.print(1000*voltage_drop);
+      
+      Serial.print("mV Internal Resistance: ");
+      Serial.print(1000000*internal_resistance);
+      Serial.println("uohm");
+      break;
   }
+} 
+
+void prepareCell() {
+  //check if starting voltage is high enough
+  //determine a load voltage to start recording at
+  //wait until battery reach that load voltage
+  //disconnect it for a minute to cool it(to not throw off temperature readings)
+      //also record the new starting voltage(should be very similar between cells hopefully)
+  //connect it back and start counting
+  //finish as normal
 }
