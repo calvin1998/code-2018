@@ -14,6 +14,34 @@ TODO (ordered in no particular order):
 5.Consider adding a physical switch to initate test.
 */
 
+
+/*
+state machine logic
+
+if(state!=DONE && cell_voltage<=3.00){                                                  //TESTING --> Complete
+    analogWrite(9,0);
+    state = 3;
+    Serial.println("----------------!!!Discharge Complete!!!----------------");
+  }else if(state==TESTING && last_cell_voltage - cell_voltage >= MIN_DROP){             //WAITING --> Testing
+    start = millis();
+    analogWrite(9,255);
+    discharging = true;
+    voltage_drop = (start_voltage-cell_voltage);
+    internal_resistance = voltage_drop/current;
+    Serial.println("----------------!!!Discharging!!!----------------");
+    Serial.print("Voltage Drop: ");
+    Serial.println(voltage_drop);
+  }else if(state==WAITING && start_voltage>=MIN_START_V + 0.05){
+    analogWrite(9,255); //start discharge
+    state = PREPARING;
+  }
+  
+  if(state==WAITING){                                                            //WAITING           
+    start_voltage = cell_voltage;
+    analogWrite(9,255);
+  }
+*/
+
 #define V_REF 1.066     //Arduino analog reference reading voltage(hand calibrated)
 #define MIN_DROP 0.1    //minimum voltage drop required for the controller to notice that discharge has started
 #define R1 149.8        //resistors for voltage divider to read battery voltages
@@ -22,6 +50,13 @@ TODO (ordered in no particular order):
 #define TPIN 9          //transistor driving pin
 #define VPIN A0         //analog voltage reading pin
 #define MIN_START_V 4.1 //minimum voltage needed to test the cell
+
+
+//State machine states
+#define WAITING 0
+#define PREPARING 1 
+#define TESTING 2
+#define DONE 3
 
 double start_voltage = 0;
 double cell_voltage = 0;
@@ -36,7 +71,7 @@ double charge;
 double current;
 bool discharging = false;
 bool end_discharge = false;
-short state = 0; //0 - waiting to charge //1 - preparing for test //2 - testing //3 - done testing
+short state = 0; 
 
 void setup() {
   Serial.begin(9600);
@@ -47,37 +82,52 @@ void setup() {
 }
 
 void loop() {
+  //Calculate Celll Voltage and Current
   double voltage_reading = analogRead(VPIN) * (V_REF / 1023.0);
   double current_millis = millis();
   cell_voltage = (voltage_reading/R2)*(R1+R2)*(3.342/3.329);
-
   current = cell_voltage/RLOAD;
 
-  if(cell_voltage<=3.00&&state!=3){
+  //State Machine
+  if (state == waiting){
     analogWrite(9,0);
-    state = 3;
-    Serial.println("----------------!!!Discharge Complete!!!----------------");
-  }else if(last_cell_voltage - cell_voltage >= MIN_DROP && (state==0 || state==1)){
-    start = millis();
-    analogWrite(9,255);
-    discharging = true;
-    voltage_drop = (start_voltage-cell_voltage);
-    internal_resistance = voltage_drop/current;
-    Serial.println("----------------!!!Discharging!!!----------------");
-    Serial.print("Voltage Drop: ");
-    Serial.println(voltage_drop);
-  }else if(state==0){
-    start_voltage = cell_voltage;
-    analogWrite(9,255);
+    if (button && cell_voltage > MIN_START_V + 0.05){
+      analogWrite(9,255);
+      state = preparing
+    }
   }
+if preparing and 
+  if voltage <= load_start_v
+    contactor = low
+  if voltage > min_start_v + margin
+    contactor = high
+    load_start_v - 0.05 
+  if voltage == min_start_v + margin
+    contactor = low
+    delay by 1 minute
+    record start voltage
+    state = testing
+    contactor = high
+    wait 1 milisecond
+    measure voltage drop
+    start timer
+if testing
+  if voltage > end_testing_V
+    contactor  = high
+    count mah 
+  if voltage <= end_testing_v
+    contactor = low
+    state = done
 
-
+  //Delay Serial Prints
   if(last_millis-current_millis>500){
     printReading(state);
   }
 
+  //Update last cell and last time stuff
   last_cell_voltage = cell_voltage;
   last_millis = current_millis;
+  //reading speed
   delay(10);
 }
 
@@ -86,7 +136,7 @@ void printReading(byte state){
   
   //state indication
   switch(state){
-    case 0:
+    case WAITING:
       if(1000*cell_voltage >= MIN_START_V){
         Serial.print("0 - READY ");
       }else {
@@ -99,10 +149,10 @@ void printReading(byte state){
       Serial.print(1000*cell_voltage);
       Serial.println("mV");
       break;
-    case 1:
+    case PREPARING:
       Serial.print("1 - PREPARING ");
       break;
-    case 2:
+    case TESTING:
       Serial.print("2 - DISCHARGING ");
       double period = current_millis - last_millis;
       charge += current*1000 * (period/1000/60/60);    
@@ -116,7 +166,7 @@ void printReading(byte state){
       Serial.print(charge);
       Serial.println("mAh");
       break;
-    case 3:
+    case DONE:
       Serial.print("3 - DONE ");
       current = 0;
       Serial.print("Elapsed Time: ");
@@ -146,6 +196,7 @@ void printReading(byte state){
 
 void prepareCell() {
   //check if starting voltage is high enough
+
   //determine a load voltage to start recording at
   //wait until battery reach that load voltage
   //disconnect it for a minute to cool it(to not throw off temperature readings)
