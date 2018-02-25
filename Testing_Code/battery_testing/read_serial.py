@@ -1,6 +1,6 @@
 ﻿import serial
 import time
-ser = serial.Serial('COM17', 9600, timeout=0)
+ser = serial.Serial('COM4', 9600, timeout=0)
 f = open('output.txt', 'w')
 
 while 1:
