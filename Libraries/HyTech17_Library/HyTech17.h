@@ -386,10 +386,17 @@ class MC_temperatures_1 {
         MC_temperatures_1();
         MC_temperatures_1(uint8_t buf[8]);
         void load(uint8_t buf[8]);
+        void write(uint8_t buf[8]);
         int16_t get_module_a_temperature();
         int16_t get_module_b_temperature();
         int16_t get_module_c_temperature();
         int16_t get_gate_driver_board_temperature();
+
+        //Testing Purposes Only
+        void set_module_a_temperature(int16_t temp);
+        void set_module_b_temperature(int16_t temp);
+        void set_module_c_temperature(int16_t temp);
+        void set_gate_driver_board_temperature(int16_t temp);
     private:
         CAN_message_mc_temperatures_1_t message;
 };
@@ -406,10 +413,18 @@ class MC_temperatures_2 {
         MC_temperatures_2();
         MC_temperatures_2(uint8_t buf[8]);
         void load(uint8_t buf[8]);
+        void write(uint8_t buf[8]);
         int16_t get_control_board_temperature();
         int16_t get_rtd_1_temperature();
         int16_t get_rtd_2_temperature();
         int16_t get_rtd_3_temperature();
+        
+        //Testing Purposes Only
+        void set_control_board_temperature(int16_t temp);
+        void set_rtd_1_temperature(int16_t temp);
+        void set_rtd_2_temperature(int16_t temp);
+        void set_rtd_3_temperature(int16_t temp);
+
     private:
         CAN_message_mc_temperatures_2_t message;
 };
@@ -426,10 +441,17 @@ class MC_temperatures_3 {
         MC_temperatures_3();
         MC_temperatures_3(uint8_t buf[8]);
         void load(uint8_t buf[8]);
+        void write(uint8_t buf[8]);
         int16_t get_rtd_4_temperature();
         int16_t get_rtd_5_temperature();
         int16_t get_motor_temperature();
         int16_t get_torque_shudder();
+
+        //Testing Purposes Only
+        void set_rtd_4_temperature(int16_t temp);
+        void set_rtd_5_temperature(int16_t temp);
+        void set_motor_temperature(int16_t temp);
+        void set_torque_shudder(int16_t torque);
     private:
         CAN_message_mc_temperatures_3_t message;
 };
@@ -439,6 +461,7 @@ typedef struct CAN_message_mc_analog_input_voltages_t {
     int16_t analog_input_2;
     int16_t analog_input_3;
     int16_t analog_input_4;
+
 } CAN_message_mc_analog_input_voltages_t;
 
 class MC_analog_input_voltages {
@@ -446,10 +469,18 @@ class MC_analog_input_voltages {
         MC_analog_input_voltages();
         MC_analog_input_voltages(uint8_t buf[8]);
         void load(uint8_t buf[8]);
+        void write(uint8_t buf[8]);
         int16_t get_analog_input_1();
         int16_t get_analog_input_2();
         int16_t get_analog_input_3();
         int16_t get_analog_input_4();
+
+        //Testing Purposes Only
+        void set_analog_input_1(int16_t analoginput);
+        void set_analog_input_2(int16_t analoginput);
+        void set_analog_input_3(int16_t analoginput);
+        void set_analog_input_4(int16_t analoginput);
+
     private:
         CAN_message_mc_analog_input_voltages_t message;
 };

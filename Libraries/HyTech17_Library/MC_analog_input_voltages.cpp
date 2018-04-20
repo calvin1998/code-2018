@@ -20,6 +20,15 @@ void MC_analog_input_voltages::load(uint8_t buf[8]) {
     memcpy(&(message.analog_input_3), &buf[4], sizeof(int16_t));
     memcpy(&(message.analog_input_4), &buf[6], sizeof(int16_t));
 }
+//Testing Purposes
+void MC_analog_input_voltages::write(uint8_t buf[8]) {
+    message = {};
+    memcpy(&buf[0], &(message.analog_input_1), sizeof(int16_t));
+    memcpy(&buf[2], &(message.analog_input_2), sizeof(int16_t));
+    memcpy(&buf[4], &(message.analog_input_3), sizeof(int16_t));
+    memcpy(&buf[6], &(message.analog_input_4), sizeof(int16_t));
+}
+//End of Testing Purposes
 
 int16_t MC_analog_input_voltages::get_analog_input_1() {
     return message.analog_input_1;
@@ -35,4 +44,20 @@ int16_t MC_analog_input_voltages::get_analog_input_3() {
 
 int16_t MC_analog_input_voltages::get_analog_input_4() {
     return message.analog_input_4;
+}
+//Testing
+void MC_analog_input_voltages::set_analog_input_1(int16_t analoginput) {
+    message.analog_input_1 = analoginput;
+}
+
+void MC_analog_input_voltages::set_analog_input_2(int16_t analoginput) {
+    message.analog_input_2 = analoginput;
+}
+
+void MC_analog_input_voltages::set_analog_input_3(int16_t analoginput) {
+    message.analog_input_3 = analoginput;
+}
+
+void MC_analog_input_voltages::set_analog_input_4(int16_t analoginput) {
+    message.analog_input_4 = analoginput;
 }

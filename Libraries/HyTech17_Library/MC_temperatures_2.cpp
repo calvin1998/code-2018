@@ -36,3 +36,20 @@ int16_t MC_temperatures_2::get_rtd_2_temperature() {
 int16_t MC_temperatures_2::get_rtd_3_temperature() {
     return message.rtd_3_temperature;
 }
+//Testing
+
+void MC_temperatures_2::set_control_board_temperature(int16_t temp) {
+    message.control_board_temperature = temp;
+}
+
+void MC_temperatures_2::set_rtd_1_temperature(int16_t temp) {
+    message.rtd_1_temperature = temp;
+}
+
+void MC_temperatures_2::set_rtd_2_temperature(int16_t temp) {
+    message.rtd_2_temperature = temp;
+}
+
+void MC_temperatures_2::set_rtd_3_temperature(int16_t temp) {
+    message.rtd_3_temperature = temp;
+}
